@@ -8,28 +8,38 @@ Ollama, llama.cpp server, vLLM.
 
 ## Run it without cloning
 
-One file, zero dependencies, so it runs straight from the network. Load a model in
-LM Studio or Ollama first — the backend is auto-detected.
+One file, zero dependencies, nothing to clone. Load a model in LM Studio or Ollama
+first — the backend is auto-detected.
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/MrBrunoWolff/the-benchmark/main/bench.mjs -o bench.mjs
-node bench.mjs                                    # prefill + generation, under a minute
-node bench.mjs --phases prefill,generation,agentic # everything, several minutes
-```
-
-Once the package is published to npm, this becomes a one-liner with no file left
-behind:
-
-```bash
-bunx the-benchmark                                     # prefill + generation
-bunx the-benchmark --phases prefill,generation,agentic # everything
+bunx the-benchmark                                     # prefill + generation, under a minute
+bunx the-benchmark --phases prefill,generation,agentic # everything, several minutes
 npx -y the-benchmark                                   # same, via npm
 ```
 
-> Not published yet. `bunx`/`npx` need the package on the registry — `bunx` rejects
-> git and local-tarball specs outright, and `npx github:…` is blocked by default on
-> npm 12 (`allow-git = "none"`). Until then, use the `curl` form above, which needs
-> nothing but Node.
+Published as [`the-benchmark`](https://www.npmjs.com/package/the-benchmark) — 4
+files, no dependencies, Node 18+.
+
+If you keep a supply-chain delay on npm installs, a freshly published version is
+refused until it ages out:
+
+```
+error: Package "the-benchmark" ... blocked by minimum-release-age: 259200 seconds
+```
+
+That is your own guard doing its job, not a broken package — bun reads
+`minimumReleaseAge` from `~/.bunfig.toml`, and neither `--minimum-release-age=0` nor
+a local `bunfig.toml` overrides it for `bunx`. Wait it out, or use the file form,
+which needs nothing but Node:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/MrBrunoWolff/the-benchmark/main/bench.mjs -o bench.mjs
+node bench.mjs
+```
+
+There is no git-spec shortcut worth documenting: `bunx` rejects git and
+local-tarball specs outright, and `npx github:…` is blocked by default on npm 12
+(`allow-git = "none"`).
 
 ## Usage
 
