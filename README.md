@@ -332,7 +332,9 @@ out/run-2026-08-18T15-35-16/
 
 ## Results
 
-Three full runs, all post-cache-fix and all with all three phases.
+Three full runs, all post-cache-fix and all with all three phases. Both Mac runs
+were taken against the current code; the PC's predates the Ollama timing fixes,
+which are a verified no-op on LM Studio, so all three are comparable.
 
 The first two are the same model (`qwen/qwen3.8-27b`, 4-bit) on two of my
 machines. The *runtimes differ* — MLX/Metal on the Mac, GGUF/Vulkan on the PC —
@@ -355,85 +357,98 @@ macOS 26.6.1 · LM Studio on MLX (Metal) · `qwen/qwen3.8-27b` 4-bit @ 119,552 c
 
 ```
 PROMPT PROCESSING (prefill)  — max_tokens=1, unique prompt per run
-  prompt_tok    ttft_ms    prefill_tok/s       took_s (took_min)
-         284      932.5            304.6         2.7s (0.05m)
-        2077     5143.1            403.8        15.5s (0.26m)
-        8221    20212.7            406.7        60.9s (1.02m)
-  total 79.1s (1.32m) for 3 sizes × 3 runs
+  prompt_tok    ttft_ms    prefill_tok/s              took_s (took_min)
+         284      850.5            333.9                2.6s (0.04m)
+        2077     4530.6            458.4               13.6s (0.23m)
+        8221    19844.9            414.3               59.3s (0.99m)
+  total 75.5s (1.26m) for 3 sizes × 3 runs
 
 GENERATION  — max_tokens=256, short prompt
-  out_tok    ttft_ms    gen_tok/s   reasoning_tok       took_s (took_min)
-      255      532.3        16.99               0        46.5s (0.78m)
-  total 46.5s (0.78m) for 3 runs
+  out_tok    ttft_ms    gen_tok/s   reasoning_tok              took_s (took_min)
+      255      508.5        17.13               0               46.0s (0.77m)
+  total 46.0s (0.77m) for 3 runs
 
 AGENTIC CODING  — plan → write files → finish, max 12 turns, 4096 max_tokens/turn
-  turn    ctx_tok    first_tok_ms    out_tok    think_tok    out_tok/s       took_s (took_min)   action
-     1        784          1072.4         84            0        18.35         5.6s (0.09m)   plan(4 steps)
-     2        896          1068.3        607            0        16.46        37.9s (0.63m)   write_file(index.html, 1.8 KB)
-     3       1531          1758.9        837            0        16.81        51.5s (0.86m)   write_file(styles.css, 1.8 KB)
-     4       2396          1010.5        499            0        17.18        30.0s (0.50m)   write_file(app.js, 1.7 KB)
-     5       2923           951.6        161            0        17.78        10.0s (0.17m)   finish
+  turn    ctx_tok    first_tok_ms    out_tok    think_tok    out_tok/s              took_s (took_min)   action
+     1        784          4290.3         84            0        18.95                8.7s (0.14m)   plan(4 steps)
+     2        896          1114.0        608            0        16.71               37.4s (0.62m)   write_file(index.html, 1.8 KB)
+     3       1532          1065.5        849            0        16.61               52.1s (0.87m)   write_file(styles.css, 1.8 KB)
+     4       2409          1079.7        428            0        16.80               26.5s (0.44m)   write_file(app.js, 1.5 KB)
+     5       2865          1017.3        155            0        17.49                9.8s (0.16m)   finish
 
   AGENTIC SUMMARY
     finished                   yes — called finish
-    wall_clock_s               134.9
-    wall_clock_min             2.25
+    wall_clock_s               134.6
+    wall_clock_min             2.24
     turns_used                 5 / 12
     tool_calls                 5 (0 malformed, 0 unknown)
     turns_without_a_tool_call  0
     stalled_turns              0 (180s deadline per turn)
     files_written              3 — index.html, styles.css, app.js
     plan_steps                 4
-    input_tok_total            8,530
-    output_tok_total           2,188
+    input_tok_total            8,486
+    output_tok_total           2,124
     thinking_tok_total         0
-    decode_tok_s_median        17.18
+    decode_tok_s_median        16.80
 
 TIME TAKEN
-  Prompt processing  79.1s (1.32m)
-  Generation         46.5s (0.78m)
-  Agentic coding    134.9s (2.25m)
-  Whole run         261.3s (4.36m)
+  Prompt processing  75.5s (1.26m)
+  Generation         46.0s (0.77m)
+  Agentic coding    134.6s (2.24m)
+  Whole run         257.6s (4.29m)
 ```
 
-Prefill settles at **~405 tok/s**, agreeing closely between 2k and 8k. Generation
-holds **~17 tok/s**.
+Prefill reads **414.3 tok/s at 8k**, which is the figure to trust; the 2k row sits
+higher at 458.4 and the 284-token row lower at 333.9. Generation holds
+**~17 tok/s**.
 
 > An earlier hand-run on this machine reported 470 and 446 tok/s at 2k and 8k.
 > Those were taken before the cross-process cache fix described in the design
-> notes, so they were partly served from the on-disk prompt cache. The ~405
-> figures above are the honest ones.
+> notes, so they were partly served from the on-disk prompt cache. The ~414
+> figure above is the honest one.
 
 The 284-token row reads *lower* than the larger sizes, as it does on the PC
-below now that the cache fix has landed there too: ~900 ms of fixed per-request
+below now that the cache fix has landed there too: ~850 ms of fixed per-request
 overhead simply outweighs 284 tokens of work. Further evidence the row carries no
 signal.
+
+The 2k row is also the least stable number in this README: it moved 403.8 → 458.4
+between two runs of the same model on the same machine, **+13.5%**, while 8k moved
++1.9%. Same evidence, from the other direction, that the small sizes measure
+overhead rather than throughput.
 
 #### The agentic run
 
 With thinking off it is a clean run: **5 turns, 5 tool calls, zero malformed,
 zero wasted turns** — the minimum possible path through the task — producing a
-working three-file app in 134.9 s.
+working three-file app in 134.6 s.
 
 - **Tool-call discipline is perfect once it stops thinking.** No malformed JSON,
   no invented tools, no prose-instead-of-action turns. The protocol was never the
   weak spot; the reasoning budget was.
-- **`ctx_tok` nearly quadruples** across five turns (784 → 2,923) purely from
-  feeding results back. `input_tok_total` of 8,530 against 2,188 output tokens is
-  the re-prefill tax: this loop spent **nearly 4× more tokens re-reading its own
+- **`ctx_tok` nearly quadruples** across five turns (784 → 2,865) purely from
+  feeding results back. `input_tok_total` of 8,486 against 2,124 output tokens is
+  the re-prefill tax: this loop spent **4× more tokens re-reading its own
   transcript than producing anything**. That ratio, not tok/s, is what makes long
   agent sessions expensive.
-- **`first_tok_ms` stays roughly flat** (~1,000 ms) even as `ctx_tok` grows,
-  because prompt caching is left enabled here and each turn only re-prefills the
-  new suffix.
-- **Decode holds ~17 tok/s**, matching the generation phase, so the agent loop
+- **`first_tok_ms` flattens at ~1,050 ms** from turn 2 on, even as `ctx_tok`
+  grows, because prompt caching is left enabled here and each turn only
+  re-prefills the new suffix. Turn 1 pays 4,290 ms against a transcript the cache
+  has never seen — the one turn where the caching is not yet helping.
+- **Decode holds ~16.8 tok/s**, matching the generation phase, so the agent loop
   costs nothing in throughput beyond the extra context.
 - **`took_s` is dominated by output length, not context.** The two 1.8 KB files
-  cost 38 s and 52 s; `finish` cost 10 s. At ~17 tok/s, writing files *is* the
+  cost 37 s and 52 s; `finish` cost 10 s. At ~17 tok/s, writing files *is* the
   wall-clock.
 
 The app it produced is genuinely usable — labelled inputs, `aria-live="polite"`
 on the results region, live recalculation on `input`, values clamped, no CDNs.
+
+Unlike the glimmer run, it is **not reproducible byte for byte**: re-running this
+exact configuration at `temperature: 0` produced a working app of a different
+size (5.2 KB against 5.3 KB) with the same five turns and the same file set. Two
+identical-looking runs of the same model on the same machine still differ, which
+is worth remembering before reading much into a single `took_s`.
 
 ### Desktop · Ryzen 7 5800X3D + Radeon RX 7900 XT · qwen on LM Studio
 
@@ -508,18 +523,18 @@ but it paid a turn for it, and that turn dominates the run:
   117.2 s it is **56% of the 211.1 s agentic wall-clock**. Turns 2-6 then used
   3,371 output tokens and 117 thinking tokens total to do the entire task.
 - **Faster decode, slower run.** Decode is 36.69 tok/s median here against the
-  Mac's 17.18 — 2.1× faster — yet the agentic phase took 211.1 s versus the Mac's
-  134.9 s. One wasted thinking turn more than ate a doubling of throughput. This
+  Mac's 16.80 — 2.2× faster — yet the agentic phase took 211.1 s versus the Mac's
+  134.6 s. One wasted thinking turn more than ate a doubling of throughput. This
   is the clearest single argument in the whole benchmark for why tok/s is not the
   number that matters for agent work.
 - **Thinking inflates output, not context.** `output_tok_total` is 7,467 against
-  the Mac's 2,188, almost entirely the 4,197 thinking tokens. The
+  the Mac's 2,124, almost entirely the 4,197 thinking tokens. The
   re-prefill ratio therefore looks *better* here (11,950 in / 7,467 out = 1.6×
-  versus the Mac's 3.9×) — an artefact of wasted output, not of a cheaper loop.
+  versus the Mac's 4.0×) — an artefact of wasted output, not of a cheaper loop.
 - **`first_tok_ms` is noisier than the Mac's** (511 ms to 3,111 ms, not tracking
   `ctx_tok` monotonically). Caching is clearly working: at ~490 tok/s an uncached
   4,053-token prefill would cost ~8 s, and turn 6 started in 1.6 s.
-- **It writes more.** 8.5 KB across three files versus the Mac's 5.3 KB, with the
+- **It writes more.** 8.5 KB across three files versus the Mac's 5.2 KB, with the
   same 4-step plan and the same file set — the thinking-on run is simply more
   verbose.
 
@@ -527,18 +542,18 @@ but it paid a turn for it, and that turn dominates the run:
 
 | | M5 Pro (MLX) | 7900 XT (Vulkan) |
 | --- | --- | --- |
-| prefill @ 2k | 403.8 tok/s | **472.2 tok/s** |
-| prefill @ 8k | 406.7 tok/s | **493.1 tok/s** |
-| ttft @ 8k | 20.2 s | **16.8 s** |
-| generation | 16.99 tok/s | **35.24 tok/s** |
-| agentic, converged | yes — 5 turns / 134.9 s | yes — 6 turns / 211.1 s |
+| prefill @ 2k | 458.4 tok/s | **472.2 tok/s** |
+| prefill @ 8k | 414.3 tok/s | **493.1 tok/s** |
+| ttft @ 8k | 19.8 s | **16.8 s** |
+| generation | 17.13 tok/s | **35.24 tok/s** |
+| agentic, converged | yes — 5 turns / 134.6 s | yes — 6 turns / 211.1 s |
 | wasted turns | 0 | 1 (the spiral, 117.2 s) |
-| decode, agentic median | 17.18 tok/s | **36.69 tok/s** |
+| decode, agentic median | 16.80 tok/s | **36.69 tok/s** |
 | `--reasoning` | `none` | server default (on) |
 
 Both machines' figures are now post-cache-fix, so the comparison holds.
 
-**The PC wins every raw-speed row.** Prefill is ~21% faster at 8k and decode is
+**The PC wins every raw-speed row.** Prefill is ~19% faster at 8k and decode is
 **2.1× faster** — the reverse of the earlier, partly-cached and partly-offloaded
 numbers, which had the Mac ahead on generation. Decode nearly tripling (12.96 →
 35.24 tok/s) on the same GPU and quant is far too large to be run-to-run noise,
@@ -546,7 +561,7 @@ and the likeliest cause is that the layers no longer spill to the CPU. The
 benchmark's `runtime` header only records backend, quant and context length, not
 `n_gpu_layers`, so that remains an inference rather than a measurement.
 
-**The Mac wins the only row a user feels.** It finished the agentic task in 134.9 s
+**The Mac wins the only row a user feels.** It finished the agentic task in 134.6 s
 to the PC's 211.1 s, at half the decode speed, because it never spent a turn
 thinking. Run the PC with `--reasoning none` and it should finish the same five
 turns at ~2× the Mac's rate; that is the run still missing.
@@ -631,7 +646,7 @@ the fix could not recover.
 
 **68.6 s, 6 turns, 6 tool calls, zero malformed, zero unknown, zero wasted
 turns** — with thinking left *on*. It is the fastest agentic run in this README:
-about half the Mac's qwen run (134.9 s) and under a third of the PC's (211.1 s).
+about half the Mac's qwen run (134.6 s) and under a third of the PC's (211.1 s).
 
 - **It converged with thinking on and wasted nothing doing it.** No spiral, no
   dead first turn, no `--reasoning none` needed. The PC's qwen run also converged
@@ -642,10 +657,10 @@ about half the Mac's qwen run (134.9 s) and under a third of the PC's (211.1 s).
   verified the three files existed before calling `finish`. That is the only run
   here that checked its own work, and it cost 1.3 s.
 - **It writes tighter.** 4.4 KB across three files against the Mac-qwen run's
-  5.3 KB and the PC's 8.5 KB, from 1,990 output tokens — the fewest of the three,
+  5.2 KB and the PC's 8.5 KB, from 1,990 output tokens — the fewest of the three,
   despite a 5-step plan rather than 4.
 - **The re-prefill tax is the worst of the three.** 10,938 input against 1,990
-  output is **5.5×**, versus the Mac-qwen run's 3.9× and the PC's 1.6×. Short
+  output is **5.5×**, versus the Mac-qwen run's 4.0× and the PC's 1.6×. Short
   turns make the ratio worse, not better: every turn still re-reads the whole
   transcript, so a loop that produces less per turn pays proportionally more.
 - **Only two of six turns have a measurable decode rate.** Turns 1 and 2 stream
@@ -710,7 +725,15 @@ Two fixes, both in `bench.mjs`:
   the end-to-end rate `(out_tok - 1) / total` and the run prints a note naming
   the rows that applies to.
 
-What changed, on byte-identical output:
+**The fix is Ollama-specific, and that was checked rather than assumed.** LM
+Studio sends `reasoning_content` — the spelling the benchmark already handled —
+and reports `reasoning_tokens` in its `usage` block, so nothing here changes on
+that backend. Re-running the Mac's qwen configuration after the fix reproduced it
+inside noise (134.9 s → 134.6 s agentic, 17.18 → 16.80 tok/s median decode), and
+no run against LM Studio has ever printed the single-chunk note. The PC's numbers
+were taken pre-fix and still stand.
+
+What changed on Ollama, on byte-identical output:
 
 | | Pre-fix | Post-fix |
 | --- | --- | --- |
@@ -744,22 +767,27 @@ The Mac ran twice, which pins the hardware while the whole stack changes:
 
 | | M5 Pro · qwen 27B · LM Studio/MLX | M5 Pro · glimmer 30B · Ollama | 7900 XT · qwen 27B · LM Studio/Vulkan |
 | --- | --- | --- | --- |
-| prefill @ 2k | 403.8 tok/s | 481.6 tok/s | 472.2 tok/s |
-| prefill @ 8k | 406.7 tok/s | 442.7 tok/s | **493.1 tok/s** |
-| generation | 16.99 tok/s | 33.82 tok/s | **35.24 tok/s** |
-| agentic wall-clock | 134.9 s | **68.6 s** | 211.1 s |
+| prefill @ 2k | 458.4 tok/s | **481.6 tok/s** | 472.2 tok/s |
+| prefill @ 8k | 414.3 tok/s | 442.7 tok/s | **493.1 tok/s** |
+| generation | 17.13 tok/s | 33.82 tok/s | **35.24 tok/s** |
+| agentic wall-clock | 134.6 s | **68.6 s** | 211.1 s |
 | turns / tool calls | 5 / 5 | 6 / 6 | 6 / 5 |
 | wasted turns | 0 | **0** | 1 (the spiral) |
 | thinking | off (`--reasoning none`) | **on** | on |
-| whole run | 261.3 s | **171.2 s** | 302.3 s |
+| whole run | 257.6 s | **171.2 s** | 302.3 s |
 
 Three variables move at once between the first two columns — model, backend and
 quantisation — so this is not a clean attribution. What it does show is that on
 the *same 48 GB Mac*, swapping the whole stack **doubled generation throughput**
-(16.99 → 33.82 tok/s, near enough the 7900 XT's 35.24) and **halved the agentic
-wall-clock** even with thinking left on. Which of the three variables bought that
-is the next thing to isolate, and both runs that would do it are still missing:
-**qwen on Ollama**, and **glimmer under LM Studio's MLX runtime**.
+(17.13 → 33.82 tok/s, near enough the 7900 XT's 35.24) and **halved the agentic
+wall-clock** even with thinking left on.
+
+Which of the three variables bought that stays open. Isolating it needs the
+cross-loaded runs — **qwen on Ollama** and **glimmer under LM Studio's MLX
+runtime** — and this setup keeps one model per backend, so neither is on the
+table without pulling a second copy of a model into the other tool. Worth being
+explicit that the attribution is unresolved rather than implying the stack swap
+alone is responsible.
 
 The comparison that survives all of it is the one this benchmark keeps making:
 glimmer's 33.82 tok/s and the 7900 XT's 35.24 tok/s are a near dead heat, yet
