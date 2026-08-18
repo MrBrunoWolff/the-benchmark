@@ -4,6 +4,7 @@
 
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve, sep } from 'node:path';
+import { createInterface } from 'node:readline/promises';
 
 const TARGETS = { lmstudio: 'http://localhost:1234', ollama: 'http://localhost:11434' };
 
@@ -15,8 +16,59 @@ for (let i = 2; i < process.argv.length; i++) {
   const isFlag = next === undefined || next.startsWith('--');
   args[a.slice(2)] = isFlag ? true : process.argv[++i];
 }
-const target = args.target ?? 'lmstudio';
-const base = (args.url ?? TARGETS[target] ?? TARGETS.lmstudio).replace(/\/$/, '');
+const canReach = async (url) => {
+  const abort = new AbortController();
+  const timer = setTimeout(() => abort.abort(), 1500);
+  try {
+    const r = await fetch(`${url}/v1/models`, { signal: abort.signal });
+    return r.ok;
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timer);
+  }
+};
+
+async function selectBackend() {
+  if (args.url) return { target: args.target ?? 'custom', base: String(args.url).replace(/\/$/, '') };
+  if (args.target) {
+    const url = TARGETS[args.target];
+    if (!url) throw new Error(`unknown target "${args.target}"; expected one of: ${Object.keys(TARGETS).join(', ')}`);
+    return { target: args.target, base: url };
+  }
+
+  const available = (await Promise.all(
+    Object.entries(TARGETS).map(async ([name, url]) => ({ name, url, available: await canReach(url) })),
+  )).filter((candidate) => candidate.available);
+
+  if (available.length === 1) return { target: available[0].name, base: available[0].url };
+  if (!available.length) {
+    throw new Error(`no supported local server found; start LM Studio or Ollama, or pass --url`);
+  }
+  if (!process.stdin.isTTY || !process.stdout.isTTY) {
+    throw new Error(`both LM Studio and Ollama are running; pass --target lmstudio or --target ollama in non-interactive use`);
+  }
+
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  try {
+    for (;;) {
+      const answer = (await rl.question('Both LM Studio and Ollama are running. Use [1] LM Studio or [2] Ollama? ')).trim().toLowerCase();
+      if (answer === '1' || answer === 'lmstudio' || answer === 'lm studio') return { target: 'lmstudio', base: TARGETS.lmstudio };
+      if (answer === '2' || answer === 'ollama') return { target: 'ollama', base: TARGETS.ollama };
+      console.log('Enter 1 for LM Studio or 2 for Ollama.');
+    }
+  } finally {
+    rl.close();
+  }
+}
+
+let target, base;
+try {
+  ({ target, base } = await selectBackend());
+} catch (e) {
+  console.error(`bench failed: ${e.message}`);
+  process.exit(1);
+}
 const runs = Number(args.runs ?? 3);
 const genTokens = Number(args['gen-tokens'] ?? 256);
 const sizes = String(args.sizes ?? '256,2048,8192').split(',').map(Number);
@@ -127,7 +179,12 @@ async function chat({ messages, tools, maxTokens, timeoutMs }) {
       const delta = choice?.delta;
       if (!delta) continue;
       if (delta.content) { content += delta.content; mark(); }
-      if (delta.reasoning_content) mark();
+      // Thinking deltas are the model producing tokens, so they start the clock
+      // too. `reasoning_content` is the OpenAI-compatible spelling; Ollama sends
+      // `reasoning`. Miss it and TTFT lands on whatever arrives *after* the
+      // thinking ends — on a tool-calling turn that is the final chunk, which
+      // collapses TTFT onto the whole request.
+      if (delta.reasoning_content || delta.reasoning) mark();
       // Tool calls stream as fragments keyed by index; name and arguments arrive in pieces.
       for (const tc of delta.tool_calls ?? []) {
         const slot = (toolCalls[tc.index ?? 0] ??= { id: '', name: '', args: '' });
@@ -147,6 +204,14 @@ async function chat({ messages, tools, maxTokens, timeoutMs }) {
   const total = performance.now() - started;
   // Fall back to chunk count when the server omits usage (older Ollama builds).
   const outTokens = usage?.completion_tokens ?? chunks;
+  // The decode window is what is left after the first token landed. A server
+  // that delivers the whole response in one chunk leaves it at ~0, and dividing
+  // by that reports a decode rate in the millions — Ollama does exactly this
+  // with tool calls. There is no steady state to measure in that case, so fall
+  // back to the end-to-end rate and flag it rather than printing a fantasy.
+  const decodeMs = ttft == null ? total : total - ttft;
+  const singleChunk = chunks < 2 || decodeMs < 1;
+  const genMs = singleChunk ? total : decodeMs;
   return {
     ttftMs: ttft ?? total,
     totalMs: total,
@@ -154,8 +219,9 @@ async function chat({ messages, tools, maxTokens, timeoutMs }) {
     outTokens,
     reasoningTokens: usage?.completion_tokens_details?.reasoning_tokens ?? 0,
     approximate: !usage,
+    singleChunk,
     prefillTps: usage?.prompt_tokens ? usage.prompt_tokens / ((ttft ?? total) / 1000) : null,
-    genTps: outTokens > 1 ? (outTokens - 1) / ((total - (ttft ?? 0)) / 1000) : null,
+    genTps: outTokens > 1 ? (outTokens - 1) / (genMs / 1000) : null,
     content,
     toolCalls: toolCalls.filter(Boolean),
     finishReason,
@@ -560,6 +626,7 @@ if (phases.includes('generation')) {
   results.push({ ...r, raw: rs });
   console.log(`  ${String(r.outTokens).padStart(7)}${fmt(r.ttftMs).padStart(11)}${fmt(r.genTps, 2).padStart(13)}${String(r.reasoningTokens ?? 0).padStart(16)}${secondsAndMinutes(secs).padStart(28)}`);
   if (rs[0].approximate) console.log('  note: server returned no usage block; out_tok is an approximation from stream chunks');
+  if (rs.some((x) => x.singleChunk)) console.log('  note: response arrived in one chunk; ttft_ms is the whole request and gen_tok/s is end-to-end, not steady-state decode');
   timings.push({ label: 'Generation', seconds: secs });
   console.log(`  total ${secondsAndMinutes(secs)} for ${runs} run${runs === 1 ? '' : 's'}`);
 }
@@ -624,7 +691,7 @@ if (phases.includes('agentic')) {
       action = labels.join(' + ');
     }
 
-    turns.push({ turn, ctxTok: r.promptTokens, ttftMs: r.ttftMs, outTok: r.outTokens, genTps: r.genTps, reasoningTok: r.reasoningTokens, seconds: r.totalMs / 1000, action });
+    turns.push({ turn, ctxTok: r.promptTokens, ttftMs: r.ttftMs, outTok: r.outTokens, genTps: r.genTps, reasoningTok: r.reasoningTokens, seconds: r.totalMs / 1000, singleChunk: r.singleChunk, action });
     console.log(`  ${String(turn).padStart(4)}${String(r.promptTokens ?? '—').padStart(11)}${fmt(r.ttftMs).padStart(16)}${String(r.outTokens).padStart(11)}${String(r.reasoningTokens ?? 0).padStart(13)}${fmt(r.genTps, 2).padStart(13)}${secondsAndMinutes(r.totalMs / 1000).padStart(28)}   ${action}`);
   }
 
@@ -652,6 +719,9 @@ if (phases.includes('agentic')) {
   };
   run.agentic = { turns, summary, files: [...vfs.entries()] };
   results.push({ phase: 'agentic', wallS, turns, ...stats, files: [...vfs.keys()] });
+
+  const oneShotTurns = turns.filter((t) => t.singleChunk).length;
+  if (oneShotTurns) console.log(`  note: ${oneShotTurns} turn${oneShotTurns === 1 ? '' : 's'} arrived in one chunk; on those rows first_tok_ms is the whole turn and out_tok/s is end-to-end, not steady-state decode`);
 
   console.log('\n  AGENTIC SUMMARY');
   const w = Math.max(...Object.keys(summary).map((k) => k.length)) + 2;
