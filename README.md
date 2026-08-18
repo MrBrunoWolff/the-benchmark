@@ -311,7 +311,7 @@ out/run-2026-08-18T15-35-16/
   returns an exact `usage` block, so the fallback to counting stream chunks never
   triggered. It did expose two timing bugs — Ollama names its thinking delta
   `reasoning`, not `reasoning_content`, and ships the whole tool call in one final
-  SSE chunk — both now fixed; see [what this run broke](#what-this-run-broke).
+  SSE chunk — both now fixed; see [what the first run broke](#what-the-first-run-broke).
 - **The agentic phase is opt-in** because it costs far more wall-clock than the
   other two: worst case is `--max-turns × --turn-timeout`. Keeping it off
   `bun run bench` means the quick numbers stay quick.
@@ -342,8 +342,10 @@ on, which matters only for the agentic phase.
 
 The third is the same Mac running `muse-glimmer:30b-mlx` on **Ollama** — a
 different model, backend and quantisation, and the run that finally exercised the
-Ollama path. It is the fastest agentic run here, and it exposed several columns
-the instrument reports wrongly on that backend; all of them are documented.
+Ollama path. It is the fastest agentic run here, and its first attempt caught the
+benchmark mistiming that backend badly enough to report decode speeds in the
+millions. The numbers published are from a clean re-run against the fixed
+instrument; the broken ones are kept as evidence.
 
 ### MacBook Pro · Apple M5 Pro · qwen on LM Studio
 
@@ -559,10 +561,11 @@ behind.
 
 Same Mac as above, different everything else: different model, different backend,
 different quantisation. This is the first run against a **live Ollama server**, so
-it retires the "unverified" caveat in the design notes — and it is also the run
-that caught the Ollama path reporting several columns wrongly. Those are called
-out under [what this run broke](#what-this-run-broke) rather than quietly left in
-the table.
+it retires the "unverified" caveat in the design notes — and the first attempt at
+it caught the benchmark mistiming that backend badly enough to report decode
+speeds in the millions. That is written up in [what the first run
+broke](#what-the-first-run-broke); the table here is a clean re-run against the
+fixed instrument.
 
 18-core CPU (6 Super + 12 Performance) · 20-core GPU · 48 GB unified memory ·
 macOS 26.6.1 · Ollama on `localhost:11434` · `muse-glimmer:30b-mlx` — 32.3B params,
@@ -571,29 +574,30 @@ macOS 26.6.1 · Ollama on `localhost:11434` · `muse-glimmer:30b-mlx` — 32.3B 
 ```
 PROMPT PROCESSING (prefill)  — max_tokens=1, unique prompt per run
   prompt_tok    ttft_ms    prefill_tok/s              took_s (took_min)
-         329      787.5            417.8                2.4s (0.04m)
-        2122     4654.5            455.9               13.7s (0.23m)
-        8266    18744.2            441.0               56.3s (0.94m)
-  total 72.3s (1.21m) for 3 sizes × 3 runs
+         329      789.6            416.7                2.4s (0.04m)
+        2122     4405.9            481.6               13.3s (0.22m)
+        8266    18670.8            442.7               56.1s (0.94m)
+  total 71.8s (1.20m) for 3 sizes × 3 runs
 
 GENERATION  — max_tokens=256, short prompt
   out_tok    ttft_ms    gen_tok/s   reasoning_tok              took_s (took_min)
-      256     7298.5        34.94               0               22.1s (0.37m)
-  total 22.1s (0.37m) for 3 runs
+      256      438.2        33.82               0               23.7s (0.40m)
+  total 23.7s (0.40m) for 3 runs
 
 AGENTIC CODING  — plan → write files → finish, max 12 turns, 4096 max_tokens/turn
   turn    ctx_tok    first_tok_ms    out_tok    think_tok    out_tok/s              took_s (took_min)   action
-     1        888         11853.9        302            0   3742989.67               11.9s (0.20m)   plan(5 steps)
-     2       1037         14215.8        479            0   4972691.81               14.2s (0.24m)   write_file(index.html, 1.3 KB)
-     3       1529         17658.6        533            0  11259259.26               17.7s (0.29m)   write_file(styles.css, 1.3 KB)
-     4       2092         16142.4        545            0   8079127.93               16.1s (0.27m)   write_file(app.js, 1.7 KB)
-     5       2667          1285.4         28            0    604486.63                1.3s (0.02m)   list_files(3)
-     6       2725          4320.1        104            0   2286805.35                4.3s (0.07m)   finish
+     1        888          2180.4        302            0        29.92               12.2s (0.20m)   plan(5 steps)
+     2       1037           698.0        479            0        34.09               14.7s (0.25m)   write_file(index.html, 1.3 KB)
+     3       1529         18433.5        533            0        28.86               18.4s (0.31m)   write_file(styles.css, 1.3 KB)
+     4       2092         17223.1        545            0        31.59               17.2s (0.29m)   write_file(app.js, 1.7 KB)
+     5       2667          1338.4         28            0        20.17                1.3s (0.02m)   list_files(3)
+     6       2725          4692.7        103            0        21.74                4.7s (0.08m)   finish
+  note: 4 turns arrived in one chunk; on those rows first_tok_ms is the whole turn and out_tok/s is end-to-end, not steady-state decode
 
   AGENTIC SUMMARY
     finished                   yes — called finish
-    wall_clock_s               65.5
-    wall_clock_min             1.09
+    wall_clock_s               68.6
+    wall_clock_min             1.14
     turns_used                 6 / 12
     tool_calls                 6 (0 malformed, 0 unknown)
     turns_without_a_tool_call  0
@@ -601,27 +605,33 @@ AGENTIC CODING  — plan → write files → finish, max 12 turns, 4096 max_toke
     files_written              3 — index.html, styles.css, app.js
     plan_steps                 5
     input_tok_total            10,938
-    output_tok_total           1,991
+    output_tok_total           1,990
     thinking_tok_total         0
-    decode_tok_s_median        4357840.74
+    decode_tok_s_median        29.39
 
 TIME TAKEN
-  Prompt processing  72.3s (1.21m)
-  Generation         22.1s (0.37m)
-  Agentic coding     65.5s (1.09m)
-  Whole run          160.8s (2.68m)
+  Prompt processing  71.8s (1.20m)
+  Generation         23.7s (0.40m)
+  Agentic coding     68.6s (1.14m)
+  Whole run          171.2s (2.85m)
 ```
 
-Prefill settles at **~445 tok/s**, agreeing between 2k and 8k. Generation runs at
-**34.94 tok/s**. The 329-token row reads low again (417.8), the same
-latency-floor shape both other runs show.
+Prefill settles at **~443 tok/s** at 8k. The 2k row reads higher at 481.6 and the
+329-token row lower at 416.7 — the same latency-floor shape both other runs show,
+which is why the largest size is the one to trust. Generation runs at
+**33.82 tok/s**.
+
+`think_tok` reads 0 on every row and it is **not** true. Ollama omits
+`reasoning_tokens` from its `usage` block entirely, so the benchmark has nothing
+to report; the model demonstrably thinks — turns 1 and 2 stream thinking deltas
+for hundreds of milliseconds before anything else arrives. This is the one column
+the fix could not recover.
 
 #### The agentic run
 
-**65.5 s, 6 turns, 6 tool calls, zero malformed, zero unknown, zero wasted
-turns** — and it did that with thinking left *on*. It is the fastest agentic run
-in this README by a wide margin: less than half the Mac's qwen run (134.9 s) and
-under a third of the PC's (211.1 s).
+**68.6 s, 6 turns, 6 tool calls, zero malformed, zero unknown, zero wasted
+turns** — with thinking left *on*. It is the fastest agentic run in this README:
+about half the Mac's qwen run (134.9 s) and under a third of the PC's (211.1 s).
 
 - **It converged with thinking on and wasted nothing doing it.** No spiral, no
   dead first turn, no `--reasoning none` needed. The PC's qwen run also converged
@@ -632,105 +642,101 @@ under a third of the PC's (211.1 s).
   verified the three files existed before calling `finish`. That is the only run
   here that checked its own work, and it cost 1.3 s.
 - **It writes tighter.** 4.4 KB across three files against the Mac-qwen run's
-  5.3 KB and the PC's 8.5 KB, from 1,991 output tokens — the fewest of the three,
+  5.3 KB and the PC's 8.5 KB, from 1,990 output tokens — the fewest of the three,
   despite a 5-step plan rather than 4.
-- **The re-prefill tax is the worst of the three.** 10,938 input against 1,991
+- **The re-prefill tax is the worst of the three.** 10,938 input against 1,990
   output is **5.5×**, versus the Mac-qwen run's 3.9× and the PC's 1.6×. Short
   turns make the ratio worse, not better: every turn still re-reads the whole
   transcript, so a loop that produces less per turn pays proportionally more.
+- **Only two of six turns have a measurable decode rate.** Turns 1 and 2 stream
+  thinking, so `first_tok_ms` is real there. Turns 3 to 6 emit no reasoning at
+  all — the model has its plan and just writes — and Ollama ships the whole tool
+  call in one chunk, so those rows fall back to an end-to-end rate. The note
+  under the table says which.
 
 The app is genuinely good — `<label>` on every input, `aria-live="polite"` and
 `aria-atomic` on the results region, `Intl.NumberFormat` currency, validation
-that degrades to `$0.00` rather than `NaN`, no CDNs.
+that degrades to `$0.00` rather than `NaN`, no CDNs. At `temperature: 0` it came
+out **byte-identical** across both runs of this section, which is what makes the
+before/after below a comparison of the instrument rather than of the model.
 
-#### What this run broke
+#### What the first run broke
 
-Several columns are wrong on the Ollama path, and the `out_tok/s` figures above —
-3.7 million tokens per second — are the giveaway. The cause is how Ollama streams
-a tool call, verified directly against the server:
+The first glimmer run printed this:
 
-- **Ollama emits the entire tool call in one final SSE chunk.** In a 23.1 s probe
+```
+  turn    ctx_tok    first_tok_ms    out_tok    think_tok    out_tok/s              took_s (took_min)   action
+     1        888         11853.9        302            0   3742989.67               11.9s (0.20m)   plan(5 steps)
+     2       1037         14215.8        479            0   4972691.81               14.2s (0.24m)   write_file(index.html, 1.3 KB)
+     3       1529         17658.6        533            0  11259259.26               17.7s (0.29m)   write_file(styles.css, 1.3 KB)
+     4       2092         16142.4        545            0   8079127.93               16.1s (0.27m)   write_file(app.js, 1.7 KB)
+     5       2667          1285.4         28            0    604486.63                1.3s (0.02m)   list_files(3)
+     6       2725          4320.1        104            0   2286805.35                4.3s (0.07m)   finish
+
+    decode_tok_s_median        4357840.74
+```
+
+Four columns were wrong, and 3.7 million tokens per second is the giveaway. The
+cause is how Ollama streams, verified directly against the server:
+
+- **Ollama ships the entire tool call in one final SSE chunk.** In a 23.1 s probe
   request, the `tool_calls` delta arrived at 23.14 s — event 150 of 152.
   Everything before it was `reasoning` deltas.
-- **The benchmark only marks TTFT on `delta.content`, `delta.reasoning_content`
+- **The benchmark only marked TTFT on `delta.content`, `delta.reasoning_content`
   or `delta.tool_calls`.** Ollama names its thinking delta `reasoning`, not
-  `reasoning_content`, so nothing marks TTFT until that final chunk lands.
+  `reasoning_content`, so nothing marked TTFT until that final chunk landed.
 
-So on every tool-calling turn, `first_tok_ms` collapses onto the turn's own
-wall-clock — look at the table: 11853.9 ms against 11.9 s, 14215.8 against 14.2 s,
-all six rows. And `out_tok/s`, which is `(out_tok - 1) / (total - ttft)`, divides
-by ~0.
+So on every tool-calling turn `first_tok_ms` collapsed onto the turn's own
+wall-clock — 11853.9 ms against 11.9 s, 14215.8 against 14.2 s, all six rows —
+and `out_tok/s`, which is `(out_tok - 1) / (total - ttft)`, divided by ~0.
 
-| Column | On Ollama | Read it as |
+| Column | Pre-fix | Read it as |
 | --- | --- | --- |
 | `first_tok_ms` (agentic) | ✗ | Whole-turn latency, not time to first token |
 | `out_tok/s` (agentic) | ✗ | Meaningless — `decode_tok_s_median` too |
-| `think_tok` / `thinking_tok_total` | ✗ | Always 0; Ollama omits `reasoning_tokens` from `usage` and this model thought on every turn |
 | `ttft_ms` (generation) | ✗ | The whole request. This model spent all 256 tokens on reasoning, emitting no visible content, so nothing ever marked TTFT |
-| `gen_tok/s` | ✓ | Correct — the `ttft ?? 0` fallback makes it `(out_tok - 1) / total`, an honest end-to-end rate with thinking included |
-| `prefill_tok/s` | ✓ | Correct — `max_tokens=1`, so `ttft ≈ total ≈ prefill` by construction |
+| `think_tok` / `thinking_tok_total` | ✗ | Always 0 — and still is; Ollama omits `reasoning_tokens` from `usage` |
+| `gen_tok/s` | ✓ | The `ttft ?? 0` fallback made it `(out_tok - 1) / total`, an honest end-to-end rate |
+| `prefill_tok/s` | ✓ | `max_tokens=1`, so `ttft ≈ total ≈ prefill` by construction |
 | everything counted (`ctx_tok`, `out_tok`, `input_tok_total`) | ✓ | Exact — `stream_options: {include_usage: true}` gets a real `usage` block |
-| convergence (`finished`, `tool_calls`, `files_written`, `wall_clock_s`) | ✓ | Exact, and it is the headline of this phase anyway |
+| convergence (`finished`, `tool_calls`, `files_written`, `wall_clock_s`) | ✓ | Exact, and the headline of this phase anyway |
 
-Recomputed the honest way — `out_tok / took_s` per turn — the agentic decode rate
-is 21.5 to 33.9 tok/s, median **~27.8**, consistent with the generation phase's
-34.94. The instrument was wrong; the machine was not.
-
-Two further findings from the same probing, both correcting things this README
-previously assumed:
-
-- **Ollama honours `reasoning_effort`.** `none` took a 95-reasoning-delta
-  response to zero. So `--reasoning none` is a live lever here too — this run
-  simply did not use it.
-- **Ollama returns an exact `usage` block** when asked via `stream_options`, so
-  the "falls back to counting stream chunks" caveat never triggered.
-
-#### The fix, and the same run after it
-
-Both are now fixed, in the same commit as this section:
+Two fixes, both in `bench.mjs`:
 
 - **TTFT marks on `delta.reasoning` too**, not just `delta.reasoning_content`.
   Thinking deltas are the model producing tokens, so they start the clock.
 - **`genTps` no longer divides by a zero window.** When the whole response
   arrives in one chunk there is no steady state to measure, so it falls back to
-  the end-to-end rate `(out_tok - 1) / total` and the run prints a note saying
-  which rows that applies to.
+  the end-to-end rate `(out_tok - 1) / total` and the run prints a note naming
+  the rows that applies to.
 
-Re-running the identical agentic task at `temperature: 0` reproduces the same six
-turns and the same three files, so this is a clean before/after of the
-*instrument*, not of the model:
+What changed, on byte-identical output:
 
-```
-  turn    ctx_tok    first_tok_ms    out_tok    think_tok    out_tok/s              took_s (took_min)   action
-     1        888          1899.2        302            0        31.97               11.3s (0.19m)   plan(5 steps)
-     2       1037           665.1        479            0        36.67               13.7s (0.23m)   write_file(index.html, 1.3 KB)
-     3       1529         17290.0        533            0        30.77               17.3s (0.29m)   write_file(styles.css, 1.3 KB)
-     4       2092         15506.2        545            0        35.08               15.5s (0.26m)   write_file(app.js, 1.7 KB)
-     5       2667          1286.8         28            0        20.98                1.3s (0.02m)   list_files(3)
-     6       2725          4238.2        103            0        24.07                4.2s (0.07m)   finish
-  note: 4 turns arrived in one chunk; on those rows first_tok_ms is the whole turn and out_tok/s is end-to-end, not steady-state decode
+| | Pre-fix | Post-fix |
+| --- | --- | --- |
+| `decode_tok_s_median` | 4,357,840.74 | **29.39** |
+| `out_tok/s` range | 604,486 – 11,259,259 | **20.17 – 34.09** |
+| `first_tok_ms`, turns 1-2 | 11853.9 / 14215.8 | **2180.4 / 698.0** |
+| `ttft_ms` (generation) | 7298.5 | **438.2** |
+| `gen_tok/s` | 34.94 | 33.82 |
 
-    wall_clock_s               63.3
-    decode_tok_s_median        31.37
-```
+`decode_tok_s_median` at 29.39 sits right on the 27.8 that recomputing the
+pre-fix table by hand — `out_tok / took_s` per turn — had already suggested,
+which is the confirmation that mattered.
 
-`decode_tok_s_median` lands at **31.37 tok/s** — against 4,357,840.74 before, and
-within a token or two of the 27.8 hand-computed above. The generation phase
-recovers too: `ttft_ms` drops from 7298.5 to **416–502 ms**, and `gen_tok/s`
-rises from 34.94 to **35.8–38.8**, because it is finally excluding prefill
-instead of averaging over the whole request.
+**`gen_tok/s` barely moved, and that is expected.** The pre-fix value was already
+an end-to-end rate over a request that was ~94% decode, so excluding a 438 ms
+TTFT can only lift it a few percent; run-to-run variance is the same size. The
+column that was badly wrong was never that one.
 
-The split the note reports is itself the finding. **Turns 1 and 2 streamed
-thinking** and now have a genuine TTFT. **Turns 3 to 6 emitted no reasoning at
-all** — the model had its plan and just wrote — so those turns really are one
-chunk, and no amount of instrumentation can recover a decode rate from them. The
-fallback is labelled rather than hidden.
+Two further findings from the same probing, both correcting things this README
+previously assumed:
 
-Everything in the tables above this subsection was produced by the pre-fix
-instrument and is published as it printed, artefacts and all — it is the evidence
-for the bug. Re-run against the current code and the two ✗ agentic columns and
-the generation `ttft_ms` will read correctly; `think_tok` still will not, because
-Ollama omits `reasoning_tokens` from `usage` entirely.
+- **Ollama honours `reasoning_effort`.** `none` took a 95-reasoning-delta
+  response to zero. So `--reasoning none` is a live lever here too — these runs
+  simply did not use it.
+- **Ollama returns an exact `usage` block** when asked via `stream_options`, so
+  the "falls back to counting stream chunks" caveat never triggered.
 
 ### Same machine, three stacks
 
@@ -738,26 +744,27 @@ The Mac ran twice, which pins the hardware while the whole stack changes:
 
 | | M5 Pro · qwen 27B · LM Studio/MLX | M5 Pro · glimmer 30B · Ollama | 7900 XT · qwen 27B · LM Studio/Vulkan |
 | --- | --- | --- | --- |
-| prefill @ 2k | 403.8 tok/s | 455.9 tok/s | **472.2 tok/s** |
-| prefill @ 8k | 406.7 tok/s | 441.0 tok/s | **493.1 tok/s** |
-| generation | 16.99 tok/s | 34.94 tok/s | **35.24 tok/s** |
-| agentic wall-clock | 134.9 s | **65.5 s** | 211.1 s |
+| prefill @ 2k | 403.8 tok/s | 481.6 tok/s | 472.2 tok/s |
+| prefill @ 8k | 406.7 tok/s | 442.7 tok/s | **493.1 tok/s** |
+| generation | 16.99 tok/s | 33.82 tok/s | **35.24 tok/s** |
+| agentic wall-clock | 134.9 s | **68.6 s** | 211.1 s |
 | turns / tool calls | 5 / 5 | 6 / 6 | 6 / 5 |
 | wasted turns | 0 | **0** | 1 (the spiral) |
 | thinking | off (`--reasoning none`) | **on** | on |
-| whole run | 261.3 s | **160.8 s** | 302.3 s |
+| whole run | 261.3 s | **171.2 s** | 302.3 s |
 
 Three variables move at once between the first two columns — model, backend and
 quantisation — so this is not a clean attribution. What it does show is that on
 the *same 48 GB Mac*, swapping the whole stack **doubled generation throughput**
-(16.99 → 34.94 tok/s, matching the 7900 XT) and **halved the agentic wall-clock**
-even with thinking left on. Which of the three variables bought that is the next
-run to isolate: qwen on Ollama, and glimmer under LM Studio's MLX runtime.
+(16.99 → 33.82 tok/s, near enough the 7900 XT's 35.24) and **halved the agentic
+wall-clock** even with thinking left on. Which of the three variables bought that
+is the next thing to isolate, and both runs that would do it are still missing:
+**qwen on Ollama**, and **glimmer under LM Studio's MLX runtime**.
 
 The comparison that survives all of it is the one this benchmark keeps making:
-glimmer's 34.94 tok/s and the 7900 XT's 35.24 tok/s are a dead heat, yet glimmer
-finished the agentic task in 65.5 s to the PC's 211.1 s. **Same decode speed, a
-3.2× wall-clock gap** — thinking discipline, not throughput.
+glimmer's 33.82 tok/s and the 7900 XT's 35.24 tok/s are a near dead heat, yet
+glimmer finished the agentic task in 68.6 s to the PC's 211.1 s. **Near-identical
+decode speed, a 3.1× wall-clock gap** — thinking discipline, not throughput.
 
 ## License
 
