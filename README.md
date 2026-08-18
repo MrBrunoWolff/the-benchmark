@@ -161,6 +161,18 @@ Two mitigations, both reported rather than hidden:
   | `chat_template_kwargs: {enable_thinking: false}` | 156 | ignored in this build |
   | `reasoning_effort: 'none'` | **0** | thinking off, tool call in 5.8 s |
 
+The spiral is not always fatal, though. On the PC run below, thinking was left
+**on** and the model *did* recover: turn 1 burned the full 4,096-token budget on
+4,080 thinking tokens and produced no tool call, then turns 2-6 planned, wrote
+three files and called `finish` with barely any thinking at all (39, 9, 6, 50,
+13 tokens). The cost was one dead turn — 117.2 s, 56% of that run's entire
+agentic wall-clock — rather than the whole run.
+
+So the failure mode is better described as *the first turn is where it spirals*:
+with an empty transcript and an open-ended task it tries to design everything at
+once, and once a plan exists in the transcript it stops. Whether it escapes on
+its own is luck; `--reasoning none` removes the coin flip.
+
 So the honest headline is that **decode speed was never the bottleneck for
 agentic use on this setup** — thinking discipline was. That is exactly the kind
 of thing a tok/s benchmark cannot tell you.
@@ -313,9 +325,11 @@ out/run-2026-08-18T15-35-16/
 
 ## Results
 
-Same model (`qwen/qwen3.8-27b`, 4-bit) on two of my machines. The *runtimes
-differ* — MLX/Metal on the Mac, GGUF/Vulkan on the PC — so this compares two
-whole stacks, not two GPUs.
+Same model (`qwen/qwen3.8-27b`, 4-bit) on two of my machines, both post-cache-fix
+and both with all three phases run. The *runtimes differ* — MLX/Metal on the Mac,
+GGUF/Vulkan on the PC — so this compares two whole stacks, not two GPUs. They also
+differ in one benchmark setting: the Mac ran `--reasoning none`, the PC ran with
+thinking left on, which matters only for the agentic phase.
 
 ### MacBook Pro · Apple M5 Pro
 
@@ -374,8 +388,8 @@ holds **~17 tok/s**.
 > notes, so they were partly served from the on-disk prompt cache. The ~405
 > figures above are the honest ones.
 
-The 284-token row reads *lower* than the larger sizes, the reverse of the PC
-below. Same latency-floor artefact in both cases: ~900 ms of fixed per-request
+The 284-token row reads *lower* than the larger sizes, as it does on the PC
+below now that the cache fix has landed there too: ~900 ms of fixed per-request
 overhead simply outweighs 284 tokens of work. Further evidence the row carries no
 signal.
 
@@ -407,57 +421,125 @@ on the results region, live recalculation on `input`, values clamped, no CDNs.
 
 ### Desktop · Ryzen 7 5800X3D + Radeon RX 7900 XT
 
-Radeon RX 7900 XT 20 GB · 31 GB RAM · LM Studio on Vulkan, `n_gpu_layers=56` ·
-`qwen/qwen3.8-27b` Q4_K_M GGUF @ 80,384 ctx
+Radeon RX 7900 XT 20 GB · 31 GB RAM · LM Studio on Vulkan ·
+`qwen/qwen3.8-27b` Q4_K_M GGUF @ 119,552 ctx · thinking left **on** (no
+`--reasoning` flag) · GPU offload not recorded by the benchmark
 
 ```
 PROMPT PROCESSING (prefill)  — max_tokens=1, unique prompt per run
-  prompt_tok    ttft_ms    prefill_tok/s
-         316      349.0            905.3
-        2109     4659.8            452.6
-        8253    17814.8            463.3
+  prompt_tok    ttft_ms    prefill_tok/s              took_s (took_min)
+         327      946.8            345.4                2.9s (0.05m)
+        2120     4489.7            472.2               13.3s (0.22m)
+        8264    16760.8            493.1               50.2s (0.84m)
+  total 66.4s (1.11m) for 3 sizes × 3 runs
 
 GENERATION  — max_tokens=256, short prompt
-  out_tok    ttft_ms    gen_tok/s   reasoning_tok
-      256      644.1        12.96             197
+  out_tok    ttft_ms    gen_tok/s   reasoning_tok              took_s (took_min)
+      256      692.0        35.24             256               23.8s (0.40m)
+  total 23.8s (0.40m) for 3 runs
+
+AGENTIC CODING  — plan → write files → finish, max 12 turns, 4096 max_tokens/turn
+  turn    ctx_tok    first_tok_ms    out_tok    think_tok    out_tok/s              took_s (took_min)   action
+     1        820          2134.9       4096         4080        35.58              117.2s (1.95m)   no tool call (hit the 4096-token cap)
+     2        854           927.8        134           39        36.46                4.6s (0.08m)   plan(4 steps)
+     3        975           510.8        890            9        41.84               21.8s (0.36m)   write_file(index.html, 2.8 KB)
+     4       1882          1966.3       1464            6        40.55               38.0s (0.63m)   write_file(styles.css, 3.4 KB)
+     5       3366          3110.6        711           50        36.93               22.3s (0.37m)   write_file(app.js, 2.3 KB)
+     6       4053          1640.3        172           13        30.89                7.2s (0.12m)   finish
+
+  AGENTIC SUMMARY
+    finished                   yes — called finish
+    wall_clock_s               211.1
+    wall_clock_min             3.52
+    turns_used                 6 / 12
+    tool_calls                 5 (0 malformed, 0 unknown)
+    turns_without_a_tool_call  1 — 1 of them ran out of output budget mid-thought
+    stalled_turns              0 (180s deadline per turn)
+    files_written              3 — index.html, styles.css, app.js
+    plan_steps                 4
+    input_tok_total            11,950
+    output_tok_total           7,467
+    thinking_tok_total         4,197
+    decode_tok_s_median        36.69
+
+TIME TAKEN
+  Prompt processing  66.4s (1.11m)
+  Generation         23.8s (0.40m)
+  Agentic coding     211.1s (3.52m)
+  Whole run          302.3s (5.04m)
 ```
 
-Prefill settles at **~460 tok/s**, generation at **~13 tok/s**. The 316-token row
-is the latency-floor artefact — ignore it.
+Prefill settles at **~490 tok/s**, generation at **~35 tok/s**.
 
-**These numbers predate the cache fix**, so they are very likely inflated the same
-way the Mac's first run was, and the agentic phase has not been run here at all.
-They need re-running before the comparison below means much.
+The 327-token row now reads **345 tok/s** — *below* the larger sizes, matching the
+Mac's shape. The earlier pre-fix run reported 905 tok/s on that same row, which
+was the on-disk prompt cache, not the GPU. The latency-floor artefact is real but
+it depresses the small row; it does not double it.
+
+> This supersedes the earlier partial run on this machine (452.6 / 463.3 tok/s
+> prefill, 12.96 tok/s generation, `n_gpu_layers=56`, 80,384 ctx, agentic not
+> run). Those prefill figures predated the cross-process cache fix, and decode
+> was measured under partial CPU offload. Everything above is post-fix and
+> includes the agentic phase.
+
+#### The agentic run
+
+It converged — **6 turns, 5 tool calls, zero malformed, zero unknown tools** —
+but it paid a turn for it, and that turn dominates the run:
+
+- **Turn 1 produced nothing.** 4,096 output tokens, 4,080 of them thinking,
+  `finish_reason: length`, no tool call. That is the reasoning spiral, and at
+  117.2 s it is **56% of the 211.1 s agentic wall-clock**. Turns 2-6 then used
+  3,371 output tokens and 117 thinking tokens total to do the entire task.
+- **Faster decode, slower run.** Decode is 36.69 tok/s median here against the
+  Mac's 17.18 — 2.1× faster — yet the agentic phase took 211.1 s versus the Mac's
+  134.9 s. One wasted thinking turn more than ate a doubling of throughput. This
+  is the clearest single argument in the whole benchmark for why tok/s is not the
+  number that matters for agent work.
+- **Thinking inflates output, not context.** `output_tok_total` is 7,467 against
+  the Mac's 2,188, almost entirely the 4,197 thinking tokens. The
+  re-prefill ratio therefore looks *better* here (11,950 in / 7,467 out = 1.6×
+  versus the Mac's 3.9×) — an artefact of wasted output, not of a cheaper loop.
+- **`first_tok_ms` is noisier than the Mac's** (511 ms to 3,111 ms, not tracking
+  `ctx_tok` monotonically). Caching is clearly working: at ~490 tok/s an uncached
+  4,053-token prefill would cost ~8 s, and turn 6 started in 1.6 s.
+- **It writes more.** 8.5 KB across three files versus the Mac's 5.3 KB, with the
+  same 4-step plan and the same file set — the thinking-on run is simply more
+  verbose.
 
 ### Side by side
 
 | | M5 Pro (MLX) | 7900 XT (Vulkan) |
 | --- | --- | --- |
-| prefill @ 2k | 403.8 tok/s | 452.6 tok/s * |
-| prefill @ 8k | 406.7 tok/s | 463.3 tok/s * |
-| ttft @ 8k | 20.2 s | 17.8 s * |
-| generation | **16.99 tok/s** | 12.96 tok/s * |
-| agentic, converged | 5 turns / 134.9 s | not run |
+| prefill @ 2k | 403.8 tok/s | **472.2 tok/s** |
+| prefill @ 8k | 406.7 tok/s | **493.1 tok/s** |
+| ttft @ 8k | 20.2 s | **16.8 s** |
+| generation | 16.99 tok/s | **35.24 tok/s** |
+| agentic, converged | yes — 5 turns / 134.9 s | yes — 6 turns / 211.1 s |
+| wasted turns | 0 | 1 (the spiral, 117.2 s) |
+| decode, agentic median | 17.18 tok/s | **36.69 tok/s** |
+| `--reasoning` | `none` | server default (on) |
 
-\* measured before the cross-process cache fix — treat as an upper bound.
+Both machines' figures are now post-cache-fix, so the comparison holds.
 
-**Generation goes to the Mac, ~31% faster**, and this is the one row the cache bug
-cannot have distorted, since decode speed is measured after prefill. That is the
-expected shape: decode is bandwidth-bound, and unified memory feeds a 27B 4-bit
-model without the partial offload the 7900 XT needs (`n_gpu_layers=56` — the
-remaining layers run on the CPU, at CPU memory speed).
+**The PC wins every raw-speed row.** Prefill is ~21% faster at 8k and decode is
+**2.1× faster** — the reverse of the earlier, partly-cached and partly-offloaded
+numbers, which had the Mac ahead on generation. Decode nearly tripling (12.96 →
+35.24 tok/s) on the same GPU and quant is far too large to be run-to-run noise,
+and the likeliest cause is that the layers no longer spill to the CPU. The
+benchmark's `runtime` header only records backend, quant and context length, not
+`n_gpu_layers`, so that remains an inference rather than a measurement.
 
-**Prefill is unresolved.** On the numbers as they stand the PC looks ~13% ahead,
-but its figures come from the pre-fix code and the Mac's equivalent figures fell
-~13% once the fix landed. Those two effects are the same size, so the honest
-answer is that this row needs a re-run on the PC before anyone draws a conclusion
-from it.
+**The Mac wins the only row a user feels.** It finished the agentic task in 134.9 s
+to the PC's 211.1 s, at half the decode speed, because it never spent a turn
+thinking. Run the PC with `--reasoning none` and it should finish the same five
+turns at ~2× the Mac's rate; that is the run still missing.
 
-Other caveats: different quantisations (MLX 4-bit vs GGUF Q4_K_M) and different
-loaded context lengths. Neither should move prefill or decode rates much, but
-they are not zero. The agentic result is a model-and-runtime property more than a
-hardware one — the reasoning spiral would very likely reproduce on the PC, just
-at ~13 tok/s instead of ~17.
+Remaining caveat: different quantisations, MLX 4-bit versus GGUF Q4_K_M. Loaded
+context length is no longer one — both ran at 119,552. The reasoning spiral is a
+model property, not a hardware one; it reproduced on both machines, and the only
+reason the PC escaped it is that turn 1's dead end left a usable transcript
+behind.
 
 ## License
 
