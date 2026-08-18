@@ -1,8 +1,25 @@
 {
   "name": "the-benchmark",
-  "private": true,
+  "version": "0.1.0",
+  "description": "Minimal zero-dependency benchmark for local LLM servers (LM Studio, Ollama, llama.cpp, vLLM): prefill, generation, and a real agentic tool-calling loop.",
   "license": "MIT",
   "type": "module",
+  "bin": {
+    "the-benchmark": "bench.mjs"
+  },
+  "files": [
+    "bench.mjs",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MrBrunoWolff/the-benchmark.git"
+  },
+  "keywords": ["llm", "benchmark", "lmstudio", "ollama", "llama.cpp", "vllm", "tokens-per-second", "agentic"],
   "scripts": {
     "bench": "node bench.mjs",
     "agentic": "node bench.mjs --phases agentic",
