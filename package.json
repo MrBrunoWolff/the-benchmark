@@ -1,0 +1,11 @@
+{
+  "name": "the-benchmark",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "bench": "node bench.mjs",
+    "lmstudio": "node bench.mjs --target lmstudio",
+    "ollama": "node bench.mjs --target ollama"
+  }
+}
