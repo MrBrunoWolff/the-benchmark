@@ -57,6 +57,13 @@ automatically. If both are running, the benchmark asks which one to use. For
 non-interactive runs with both available, pass `--target lmstudio` or
 `--target ollama` explicitly.
 
+To see what the model feels like once a session has history behind it — the
+number that actually matters for agent work — sweep the context depth:
+
+```bash
+node bench.mjs --depth 0,4096,16384
+```
+
 Three phases: **prefill**, **generation**, and **agentic**. The first two run by
 default and take under a minute. The agentic phase is opt-in via `--phases`
 because it is a real multi-turn agent loop — expect several minutes.
@@ -86,6 +93,8 @@ Override with `--model`.
 | `--runs` | `3` | Runs per size; median is reported |
 | `--sizes` | `256,2048,8192` | Approx prompt sizes for the prefill test |
 | `--gen-tokens` | `256` | `max_tokens` for the generation test |
+| `--depth` | `0` | Context depths for the generation test — decode is measured behind a preloaded context of each size, so `0,4096,16384` shows how much the model slows as the KV cache fills |
+| `--latency-mode` | `generation` | How the request floor is measured before it is subtracted from prefill: `generation` (a one-token request), `api` (a `/v1/models` fetch), or `none` to skip it and drop the `est_` columns |
 | `--phases` | `prefill,generation` | Which phases to run; add `agentic` to include the agent loop |
 | `--max-turns` | `12` | Agentic: turn cap before the run is called unconverged |
 | `--turn-tokens` | `4096` | Agentic: `max_tokens` per turn — must fit the thinking **and** the tool call |
@@ -108,21 +117,70 @@ Sent with `max_tokens=1`, so the request finishes as soon as prefill does.
 | Column | Meaning | Better |
 | --- | --- | --- |
 | `prompt_tok` | Input size in tokens, as counted by the server (not estimated) | — |
-| `ttft_ms` | Time to first token. With `max_tokens=1` this is essentially pure prompt-processing time | lower |
-| `prefill_tok/s` | `prompt_tok / ttft_ms` — input tokens digested per second | higher |
+| `ttft_ms` | Time to first token. With `max_tokens=1` this is essentially pure prompt-processing time — but it still contains the request round trip | lower |
+| `est_ppt_ms` | `ttft_ms` minus the measured request floor, so it approximates what the server alone spent reading the prompt | lower |
+| `prefill_tok/s` | `prompt_tok / ttft_ms` — input tokens digested per second, round trip included | higher |
+| `est_tok/s` | `prompt_tok / est_ppt_ms` — the same rate with the round trip removed. **Prefer this one** | higher |
+| `spread` | Half the observed range across `--runs` repeats, as a percentage of the median. A few percent is noise; tens of percent means one run behaved differently | lower |
 | `took_s` / `took_min` | Wall-clock for that row in both seconds and minutes, covering all `--runs` repeats of it | lower |
+
+The floor is measured once per run, after warmup, and printed in the header. It
+is a fixed cost on every row: against an 8k prompt it is rounding error, at 256
+tokens it is most of the elapsed time. Against a mock server pinned at a true
+1,000 tok/s, `prefill_tok/s` reads **851** at 256 tokens while `est_tok/s`
+recovers **1,011**.
+
+It is also per-backend and has to be measured rather than assumed — LM Studio's
+floor came in at 369ms against Ollama's 255ms on the same machine, which is the
+opposite of the obvious guess about which one carries more overhead.
+
+**This corrects the advice in [Reading the results](#reading-the-results).** Small
+prompts do not read *inflated* — a fixed per-request cost divided by very few
+tokens can only drag a rate down, and every run in [Results](#results) shows the
+smallest row lower than the 2k row, not higher. That rising trend is the artefact:
+attention cost grows with sequence length, so per-token prefill should get slower
+as prompts get longer. With the floor subtracted it does.
 
 ### Generation — how fast the model *writes*
 
-Short prompt, `max_tokens=--gen-tokens`.
+Short question, `max_tokens=--gen-tokens`, one row per `--depth`.
 
 | Column | Meaning | Better |
 | --- | --- | --- |
+| `ctx_tok` | Context actually sent, counted by the server. At `--depth 0` this is just the question; above it, the preloaded context | — |
 | `out_tok` | Tokens generated, including any thinking tokens | — |
-| `ttft_ms` | Time to first token. Here the prompt is tiny, so this is the request latency floor, not a prefill measurement | lower |
+| `think_tok` | How much of `out_tok` was thinking rather than visible content, when the server reports it. A **subset** of `out_tok`, not an addition to it — which is why it sits next to it | — |
+| `ttft_ms` | Time to first token. At depth 0 the prompt is tiny, so this is the request latency floor; at depth it is dominated by reading the preloaded context | lower |
 | `gen_tok/s` | `(out_tok - 1) / (total - ttft)` — prefill is excluded, so this is steady-state decode speed. If the response arrives in a single chunk there is no window to measure, so it falls back to `(out_tok - 1) / total` and the run says so | higher |
-| `reasoning_tok` | How much of `out_tok` was thinking rather than visible content, when the server reports it. A **subset** of `out_tok`, not an addition to it | — |
-| `took_s` / `took_min` | Wall-clock for the whole phase in both seconds and minutes | lower |
+| `spread` | Half the observed range across `--runs` repeats, as a percentage of the median | lower |
+| `peak_tok/s` | The best one-second window, against `gen_tok/s` which is the whole-request average. A large gap means the run was not steady — throttling, memory pressure, or another process competing. Blank when the stream lasted under a second, since there is no window to read | higher |
+| `took_s` / `took_min` | Wall-clock for that row in both seconds and minutes | lower |
+
+Not every backend fills `think_tok`. LM Studio returns
+`completion_tokens_details.reasoning_tokens` and Ollama does not, so a `0` there
+means the server did not say, not that the model did not think.
+
+#### Depth — the number that predicts agentic pain
+
+`gen_tok/s` measured on an empty context is the number everyone quotes, and it is
+the one you will never experience. Decode is memory-bandwidth-bound, so every
+token has to read the whole KV cache — and in an agent loop that cache is the
+entire transcript so far. The agentic phase already prints `ctx_tok` climbing turn
+over turn; `--depth` is the same axis measured deliberately, so the two halves of
+the benchmark explain each other:
+
+```bash
+node bench.mjs --depth 0,4096,16384,32768
+```
+
+The falloff is worth measuring rather than assuming: across the two stacks here it
+ranged from a few percent to about a third over the same 0→16k span. A tok/s
+figure quoted without the depth it was taken at is missing information that is
+sometimes negligible and sometimes decisive.
+
+Prefill needs no equivalent flag — `--sizes` already sweeps input length, which is
+the same measurement. Measuring prefill "at depth" without a prefix-cache round
+trip would just be prefill of a larger prompt.
 
 ### Agentic coding — can it actually *drive tools*
 
@@ -240,14 +298,20 @@ suggested it was a slice of `out_tok`.
   `/api/show` plus `/api/ps` — which is exactly how the two glimmer runs turned out
   to be different 4-bit builds. Fetching those two endpoints is the obvious next
   thing to ship
-- `think_tok` in the agentic table, sitting immediately next to `out_tok` so the
-  subset relationship is visible
+- `think_tok` in the agentic **and** generation tables, sitting immediately next
+  to `out_tok` so the subset relationship is visible. The generation table's shape
+  changed anyway when `--depth` landed, so the rename cost nothing extra there
 - `took_s` / `took_min` on every row, and a `TIME TAKEN` block per phase
 - the HTML report, which carries the full human-readable name, the unit and an
   explainer for every metric — so the terse keys below only have to serve people
   already looking at a terminal
 
-**Still proposed** for the two older phases, since the agentic table already uses
+- `ctx_tok` in the generation table, matching the agentic one, now that `--depth`
+  gives that phase a context worth naming
+- `est_ppt_ms` / `est_tok/s`, which sidestep the `ttft_ms` ambiguity in the prefill
+  phase entirely by reporting the quantity people actually wanted from it
+
+**Still proposed** for the rest, since the agentic table already uses
 `ctx_tok` / `first_tok_ms` / `out_tok/s` and the two halves of the output should
 not disagree:
 
@@ -268,7 +332,6 @@ GENERATION — writing the output (max_tokens=256, short prompt)
 | `prefill_tok/s` | `input_tok/s` | Names the thing being counted, and matches the column it derives from |
 | `ttft_ms` (generation) | `first_tok_ms` | Same quantity, different meaning here — it is the latency floor, so stop reusing the prefill name |
 | `gen_tok/s` | `out_tok/s` | Consistent with `out_tok`, and with the agentic table |
-| `reasoning_tok` | `think_tok`, next to `out_tok` | Shorter, and adjacency shows it is a subset — as already done in the agentic table |
 
 Renaming these is a breaking change for anyone parsing the output, which is why
 they are listed rather than applied.
@@ -320,13 +383,21 @@ out/run-2026-08-18T15-35-16/
 
 ## Reading the results
 
-- **Small prompts measure latency, not throughput.** At a few hundred tokens the
-  request round-trip dominates, so `prefill_tok/s` is inflated and noisy. Trust
-  the largest size you ran.
+- **On small prompts read `est_tok/s`, not `prefill_tok/s`.** At a few hundred
+  tokens the request round trip is most of the elapsed time, which drags the raw
+  rate *down* — earlier versions of this README said inflated, which was backwards.
+  The floor is now measured and subtracted; the raw column is kept only so older
+  runs stay comparable.
 - **Medians, not means, for a reason.** Backends cache prompts. A single cached
   run can report an order-of-magnitude-too-high prefill rate; the median rejects
-  it. Keep `--runs` at 3 or more, and inspect `--json` if a number looks too
-  good. Prompt caching is *mostly* defeated (see below) but not perfectly.
+  it — and `spread` tells you it happened, which a mean would have quietly
+  absorbed. Keep `--runs` at 3 or more, and inspect `--json` when `spread` is
+  large. Prompt caching is *mostly* defeated (see below) but not perfectly.
+- **`gen_tok/s` at depth 0 is the number you will never experience.** Run
+  `--depth` before believing any single decode figure.
+- **A `peak_tok/s` far above `gen_tok/s` means the run was not steady.** On a
+  laptop that is usually thermal throttling, and it is exactly the case a lone
+  median hides.
 - **Thinking models** may spend the entire budget on reasoning tokens.
   `gen_tok/s` is still correct — tokens are tokens — but raise `--gen-tokens` if
   you want visible content too.
@@ -342,6 +413,13 @@ out/run-2026-08-18T15-35-16/
   2k against a true ~460. Effective now, but still not airtight, hence the median.
 - **A warmup run precedes measurement** so JIT model loading is not counted in
   the first result.
+- **The request floor is measured, not assumed.** Every timing includes the cost
+  of getting a request out and a first byte back. One measurement after warmup
+  (`--latency-mode`) turns the smallest prefill row from an artefact into a
+  number, and it is printed in the header so you can see what was subtracted.
+- **Depth is a generation-phase knob only,** and it goes in a system message so
+  the question itself stays the same length across rows — what changes between
+  them is the KV cache, not the thing being asked.
 - **`temperature: 0`** for run-to-run stability.
 - **Cold-load time is not measured** — that needs an unload between runs, which
   has no portable API across backends. Restart the backend and watch the warmup
@@ -1045,6 +1123,27 @@ The comparison that survives all of it is the one this benchmark keeps making:
 glimmer's 32.27 tok/s and qwen's 35.63 tok/s on the *same PC* are a near dead
 heat, yet glimmer finished the agentic task in 86.9 s to qwen's 204.0 s. **Equal
 decode speed, a 2.3× wall-clock gap** — thinking discipline, not throughput.
+
+## Prior art
+
+The prefill/decode split and the agentic phase are this benchmark's own, but four
+of the measurements above came from reading
+[eugr/llama-benchy](https://github.com/eugr/llama-benchy), which brings
+llama-bench-style numbers to OpenAI-compatible endpoints: measuring at context
+depth, subtracting an estimated latency baseline, reporting run-to-run variance
+next to the central number, and reading peak throughput off a one-second window.
+
+Deliberately not taken from it: concurrency sweeps (a serving-capacity question,
+where this is a single-user one), local HuggingFace tokenizers (server-reported
+`usage` is exact and needs no dependency), and prefix-cache measurement, which is
+the direct opposite of what the nonce prefixing here exists to defeat.
+
+Its remaining idea worth revisiting is sourcing prompts from a real book rather
+than a repeated filler phrase, so that speculative decoding and MTP are measured
+against text they cannot trivially draft. That is a real effect, but it costs the
+single-file property this tool is distributed on, and it has not yet been shown to
+move the numbers on any stack measured here — so it stays unbought until an
+MTP-enabled A/B says otherwise.
 
 ## License
 
