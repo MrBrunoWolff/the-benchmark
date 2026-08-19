@@ -83,6 +83,20 @@ const maxTurns = Number(args['max-turns'] ?? 12);
 const turnTokens = Number(args['turn-tokens'] ?? 4096);
 const turnTimeout = Number(args['turn-timeout'] ?? 180) * 1000;
 const reasoning = typeof args.reasoning === 'string' ? args.reasoning : null;
+// Generation is measured behind a preloaded context of each depth, so decode
+// degradation as the KV cache fills is visible. Prefill needs no equivalent —
+// --sizes already sweeps input length, which is the same measurement.
+const depths = String(args.depth ?? '0').split(',').map(Number).filter((d) => Number.isFinite(d) && d >= 0);
+if (!depths.length) {
+  console.error('--depth must be one or more non-negative token counts, e.g. --depth 0,4096,16384');
+  process.exit(1);
+}
+const LATENCY_MODES = ['generation', 'api', 'none'];
+const latencyMode = String(args['latency-mode'] ?? 'generation');
+if (!LATENCY_MODES.includes(latencyMode)) {
+  console.error(`unknown --latency-mode "${latencyMode}"; expected one of: ${LATENCY_MODES.join(', ')}`);
+  process.exit(1);
+}
 const outRoot = resolve(String(args.out ?? 'out'));
 
 const die = (e) => {
@@ -154,8 +168,13 @@ async function chat({ messages, tools, maxTokens, timeoutMs }) {
 
   let ttft = null, chunks = 0, usage = null, buf = '', content = '', finishReason = null;
   const toolCalls = [];
+  // Arrival time of every token-bearing delta, so peak throughput can be read
+  // off a sliding window rather than only as a whole-request average.
+  const arrivals = [];
   const mark = () => {
-    if (ttft === null) ttft = performance.now() - started;
+    const at = performance.now() - started;
+    if (ttft === null) ttft = at;
+    arrivals.push(at);
     chunks++;
   };
   const reader = res.body.getReader();
@@ -222,6 +241,7 @@ async function chat({ messages, tools, maxTokens, timeoutMs }) {
     singleChunk,
     prefillTps: usage?.prompt_tokens ? usage.prompt_tokens / ((ttft ?? total) / 1000) : null,
     genTps: outTokens > 1 ? (outTokens - 1) / (genMs / 1000) : null,
+    peakTps: singleChunk ? null : peakTokensPerSecond(arrivals, outTokens),
     content,
     toolCalls: toolCalls.filter(Boolean),
     finishReason,
@@ -236,7 +256,41 @@ const median = (xs) => {
   const m = s.length >> 1;
   return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
 };
+// Half the observed range as a percentage of the median. Small n makes a proper
+// stddev meaningless, and the failure this has to catch is one cached run coming
+// back an order of magnitude fast — which a range shows and a stddev buries.
+const spread = (xs) => {
+  const s = xs.filter((x) => x != null).sort((a, b) => a - b);
+  if (s.length < 2) return null;
+  const mid = median(s);
+  if (!mid) return null;
+  return ((s[s.length - 1] - s[0]) / 2 / mid) * 100;
+};
+
+// Highest throughput in any one-second window. Streaming deltas are one token
+// each on every backend tested, but scale by the server's real token count so
+// the peak stays consistent with out_tok rather than drifting from it.
+function peakTokensPerSecond(arrivals, outTokens) {
+  if (arrivals.length < 2) return null;
+  // Nothing to slide a one-second window over yet; an average would be reported
+  // as a peak, which is the one thing this column must not do.
+  if (arrivals[arrivals.length - 1] - arrivals[0] < 1000) return null;
+  const perDelta = outTokens / arrivals.length;
+  let best = 0;
+  for (let i = 0, j = 0; i < arrivals.length; i++) {
+    while (j < arrivals.length && arrivals[j] < arrivals[i] + 1000) j++;
+    if (j - i > best) best = j - i;
+  }
+  return best * perDelta;
+}
+
 const fmt = (n, d = 1) => (n == null ? '—' : n.toFixed(d));
+const pct = (n) => (n == null ? '—' : `±${n.toFixed(0)}%`);
+// Fixed-width columns defined once, so the header and the rows cannot drift.
+const cols = (spec) => ({
+  header: '  ' + spec.map(([name, w]) => name.padStart(w)).join(''),
+  row: (vals) => '  ' + vals.map((v, i) => String(v).padStart(spec[i][1])).join(''),
+});
 const sum = (xs) => xs.reduce((a, b) => a + (b ?? 0), 0);
 const kb = (s) => `${(Buffer.byteLength(s) / 1024).toFixed(1)} KB`;
 const secondsAndMinutes = (seconds) => `${seconds.toFixed(1)}s (${(seconds / 60).toFixed(2)}m)`;
@@ -251,7 +305,8 @@ if (info.compatibility_type || info.quantization || info.loaded_context_length) 
 }
 console.log(`phases   ${phases.join(', ')}`);
 if (reasoning) console.log(`reason   reasoning_effort=${reasoning}`);
-if (phases.some((p) => p === 'prefill' || p === 'generation')) console.log(`runs     ${runs} per size (median reported)`);
+if (phases.some((p) => p === 'prefill' || p === 'generation')) console.log(`runs     ${runs} per row (median reported, spread shown alongside)`);
+if (phases.includes('generation') && depths.some((d) => d > 0)) console.log(`depth    ${depths.join(', ')} tokens of preloaded context`);
 console.log('');
 
 let nonce = 0;
@@ -411,7 +466,23 @@ const METRICS = {
   },
   prefill_tok_s: {
     name: 'Prompt read speed', cli: 'prefill_tok/s', unit: 'tok/s', better: 'higher',
-    what: 'Prompt size divided by time to first token — how fast the model digests input. Compute-bound, and the number that decides how long a large context takes to load.',
+    what: 'Prompt size divided by time to first token — how fast the model digests input. Compute-bound, and the number that decides how long a large context takes to load. Includes the request round trip, which is a fixed cost divided by very few tokens on the smallest row — so that row reads low, not high.',
+  },
+  est_ppt_ms: {
+    name: 'Estimated prompt processing time', abbr: 'est PPT', unit: 'ms', better: 'lower',
+    what: 'Time to first token with the measured request floor subtracted, so it approximates what the server alone spent reading the prompt. The floor is measured once per run against a one-token request and reported in the header.',
+  },
+  est_tok_s: {
+    name: 'Server-side read speed', cli: 'est_tok/s', unit: 'tok/s', better: 'higher',
+    what: 'Prompt size divided by estimated prompt processing time. The same measurement as prompt read speed with the round trip removed, which is what makes the small-prompt rows worth reading at all.',
+  },
+  peak_tok_s: {
+    name: 'Peak write speed', cli: 'peak_tok/s', unit: 'tok/s', better: 'higher',
+    what: 'The highest decode rate sustained in any one-second window, against the median which is the whole-request average. A large gap between them means the run was not steady — thermal throttling, memory pressure or another process competing.',
+  },
+  spread: {
+    name: 'Run-to-run spread', unit: '± % of median', better: 'lower',
+    what: 'Half the observed range across repeat runs, as a percentage of the median. It says whether the median can be trusted: a few percent is normal noise, tens of percent means one run behaved differently and the raw numbers are worth reading with --json.',
   },
   out_tok: {
     name: 'Output length', unit: 'tokens', better: null,
@@ -435,13 +506,16 @@ const METRICS = {
   },
   ctx_tok: {
     name: 'Context size', unit: 'tokens', better: null,
-    what: 'Everything sent this turn — the entire transcript so far. It grows every turn, which is what makes long agent sessions expensive regardless of speed.',
+    what: 'Everything sent with the request, counted by the server. In the agent loop that is the entire transcript so far, which grows every turn — the reason long agent sessions get expensive regardless of speed. In the generation phase it is the preloaded context the --depth row asked for.',
   },
   action: {
     name: 'Action', unit: null, better: null,
     what: 'The tool call the turn produced, with its arguments summarised — or a note that the turn produced no call at all.',
   },
 };
+
+const GEN_METRICS = ['ctx_tok', 'out_tok', 'think_tok', 'ttft_ms', 'gen_tok_s', 'spread', 'peak_tok_s', 'took_s'];
+const PREFILL_METRICS = ['prompt_tok', 'ttft_ms', 'est_ppt_ms', 'prefill_tok_s', 'est_tok_s', 'spread', 'took_s'];
 
 const SUMMARY_FIELDS = {
   finished: 'Whether the model called finish, or instead ran into the turn cap or a stall. The single most important line: everything else describes a run that may not have worked.',
@@ -479,6 +553,8 @@ ${keys.map((k) => {
 
 function writeRunReport(dir, run) {
   const { prefill, generation, agentic, timings, totalS } = run;
+  const withEst = latencyMode !== 'none';
+  const prefillCols = PREFILL_METRICS.filter((k) => withEst || (k !== 'est_ppt_ms' && k !== 'est_tok_s'));
 
   const phaseTimes = `<table class="times">
 <tr><th class="left">Benchmark</th><th>Time taken</th><th>Share of run</th></tr>
@@ -490,21 +566,25 @@ ${timings.map((t) => `<tr><th class="left">${esc(t.label)}</th><td>${secondsAndM
 <h2>Prompt processing <span class="sub">how fast the model reads</span></h2>
 <p class="lede">Each row sends a fresh prompt of the given size with <code>max_tokens=1</code>, so the request finishes the moment prefill does. ${runs} run${runs === 1 ? '' : 's'} per size, median reported. Every run is prefixed with a unique nonce so prompt caching cannot turn this into a cache-hit test.</p>
 <table>
-<tr>${th('prompt_tok')}${th('ttft_ms')}${th('prefill_tok_s')}${th('took_s')}</tr>
-${prefill.map((r) => `<tr><td>${r.promptTokens ?? '—'}</td><td>${fmt(r.ttftMs)}</td><td>${fmt(r.prefillTps)}</td><td>${secondsAndMinutes(r.seconds)}</td></tr>`).join('\n')}
+<tr>${prefillCols.map((k) => th(k)).join('')}</tr>
+${prefill.map((r) => `<tr><td>${r.promptTokens ?? '—'}</td><td>${fmt(r.ttftMs)}</td>${withEst ? `<td>${fmt(r.estPptMs)}</td>` : ''}<td>${fmt(r.prefillTps)}</td>${withEst ? `<td>${fmt(r.estTps)}</td>` : ''}<td>${pct(r.spreadPct)}</td><td>${secondsAndMinutes(r.seconds)}</td></tr>`).join('\n')}
 </table>
-<p class="note">The smallest row is a latency artefact, not a throughput measurement — at a few hundred tokens the request round trip dominates. Trust the largest size you ran.</p>
-${glossary(['prompt_tok', 'ttft_ms', 'prefill_tok_s', 'took_s'])}
+<p class="note">${withEst
+  ? `Read the <code>est_</code> columns in preference to the raw ones. Every request carries a fixed round-trip cost, measured here at <strong>${fmt(latencyMs)}ms</strong> — negligible against an 8k prompt, but most of the measurement at a few hundred tokens, which is a fixed cost divided by very few tokens. That drags the small rows <em>down</em>, not up: the raw column tends to climb with prompt size, which looks like large prompts being read faster and is the opposite of what attention does. Estimated prompt processing time has the floor subtracted, and the corrected rates fall with size as they should.`
+  : 'The smallest row is a latency artefact, not a throughput measurement — at a few hundred tokens the request round trip is most of the elapsed time, and <code>--latency-mode none</code> leaves it in. Trust the largest size you ran.'}</p>
+${glossary(prefillCols)}
 </section>`;
 
-  const genSection = !generation ? '' : `<section>
+  const genSection = !generation?.length ? '' : `<section>
 <h2>Generation <span class="sub">how fast the model writes</span></h2>
-<p class="lede">A short prompt with <code>max_tokens=${genTokens}</code>, so the timing is dominated by decoding rather than reading. Prefill is subtracted out.</p>
+<p class="lede">A short question with <code>max_tokens=${genTokens}</code>, so the timing is dominated by decoding rather than reading. Prefill is subtracted out.${generation.length > 1
+  ? ' Each row repeats the measurement behind a preloaded context of the given depth. Decode is memory-bandwidth-bound and a larger KV cache means more to read per token, so the rate falls as the rows descend — that fall is what a long agent session actually feels like.'
+  : ''}</p>
 <table>
-<tr>${th('out_tok')}${th('ttft_ms')}${th('gen_tok_s')}${th('think_tok')}${th('took_s')}</tr>
-<tr><td>${generation.outTokens}</td><td>${fmt(generation.ttftMs)}</td><td>${fmt(generation.genTps, 2)}</td><td>${generation.reasoningTokens ?? 0}</td><td>${secondsAndMinutes(generation.seconds)}</td></tr>
+<tr>${GEN_METRICS.map((k) => th(k)).join('')}</tr>
+${generation.map((r) => `<tr><td>${r.ctxTokens ?? '—'}</td><td>${r.outTokens}</td><td>${r.reasoningTokens ?? 0}</td><td>${fmt(r.ttftMs)}</td><td>${fmt(r.genTps, 2)}</td><td>${pct(r.spreadPct)}</td><td>${fmt(r.peakTps, 2)}</td><td>${secondsAndMinutes(r.seconds)}</td></tr>`).join('\n')}
 </table>
-${glossary(['out_tok', 'ttft_ms', 'gen_tok_s', 'think_tok', 'took_s'])}
+${glossary(GEN_METRICS)}
 </section>`;
 
   const agenticSection = !agentic ? '' : `<section>
@@ -563,7 +643,7 @@ ${agentic.files.map(([p, c]) => `<details><summary>${esc(p)} <span class="hcode"
 
 <h1>Benchmark run</h1>
 <p class="meta">${esc(model)}${info.quantization ? ` · ${esc([info.compatibility_type, info.quantization, info.loaded_context_length && `${info.loaded_context_length.toLocaleString('en-US')} ctx`].filter(Boolean).join(' · '))}` : ''}<br>
-${esc(target)} · ${esc(base)}${reasoning ? ` · reasoning_effort=${esc(reasoning)}` : ''}</p>
+${esc(target)} · ${esc(base)}${reasoning ? ` · reasoning_effort=${esc(reasoning)}` : ''}${withEst ? `<br>request floor ${fmt(latencyMs)}ms (--latency-mode ${esc(latencyMode)})` : ''}</p>
 
 <h2>Time taken <span class="sub">per benchmark</span></h2>
 <p class="lede">Wall-clock for each phase that ran, so a fast number in a slow phase is obvious. The warmup request is excluded — it exists only so model loading is not counted in the first result.</p>
@@ -587,25 +667,75 @@ process.stdout.write('warmup... ');
 await measure(buildPrompt(64, `warm-${nonce++}`), 8);
 console.log('done');
 
+// Every timing below includes the cost of getting a request to the server and a
+// first byte back. On an 8k prompt that is rounding error; at 256 tokens it is
+// most of the measurement, which is why the smallest row has never been worth
+// reading. Measure the floor once and subtract it.
+let latencyMs = 0;
+if (latencyMode !== 'none') {
+  process.stdout.write(`latency floor (${latencyMode})... `);
+  const samples = [];
+  for (let i = 0; i < 3; i++) {
+    if (latencyMode === 'api') {
+      const t = performance.now();
+      await fetch(`${base}/v1/models`);
+      samples.push(performance.now() - t);
+    } else {
+      // One token off a one-token prompt: request overhead plus the smallest
+      // amount of real work the server can be asked to do.
+      samples.push((await measure(buildPrompt(1, `lat-${nonce++}`), 1)).ttftMs);
+    }
+  }
+  latencyMs = median(samples) ?? 0;
+  console.log(`${fmt(latencyMs)}ms`);
+}
+// Subtracting a floor measured on a different-shaped request can overshoot on a
+// tiny prompt. Report nothing rather than a negative or absurd rate.
+const estPpt = (ttftMs) => {
+  if (latencyMode === 'none' || ttftMs == null) return null;
+  const ms = ttftMs - latencyMs;
+  return ms > 1 ? ms : null;
+};
+
 if (phases.includes('prefill')) {
   const t0 = performance.now();
   console.log('\nPROMPT PROCESSING (prefill)  — max_tokens=1, unique prompt per run');
-  console.log('  prompt_tok    ttft_ms    prefill_tok/s              took_s (took_min)');
+  const withEst = latencyMode !== 'none';
+  const table = cols([
+    ['prompt_tok', 12], ['ttft_ms', 11],
+    ...(withEst ? [['est_ppt_ms', 13]] : []),
+    ['prefill_tok/s', 16],
+    ...(withEst ? [['est_tok/s', 12]] : []),
+    ['spread', 9], ['took_s (took_min)', 28],
+  ]);
+  console.log(table.header);
   const rows = [];
   for (const size of sizes) {
     const s0 = performance.now();
     const rs = [];
     for (let i = 0; i < runs; i++) rs.push(await measure(buildPrompt(size, `p${size}-${nonce++}`), 1));
+    const ttftMs = median(rs.map((x) => x.ttftMs));
+    const estPptMs = estPpt(ttftMs);
+    const promptTokens = rs[0].promptTokens;
     const r = {
-      phase: 'prefill', size, promptTokens: rs[0].promptTokens,
-      ttftMs: median(rs.map((x) => x.ttftMs)), prefillTps: median(rs.map((x) => x.prefillTps)),
+      phase: 'prefill', size, promptTokens, ttftMs, estPptMs,
+      prefillTps: median(rs.map((x) => x.prefillTps)),
+      estTps: estPptMs && promptTokens ? promptTokens / (estPptMs / 1000) : null,
+      spreadPct: spread(rs.map((x) => x.prefillTps)),
       seconds: (performance.now() - s0) / 1000,
     };
     rows.push(r);
     results.push({ ...r, raw: rs });
-    console.log(`  ${String(r.promptTokens ?? size).padStart(10)}${fmt(r.ttftMs).padStart(11)}${fmt(r.prefillTps).padStart(17)}${secondsAndMinutes(r.seconds).padStart(28)}`);
+    console.log(table.row([
+      r.promptTokens ?? size, fmt(r.ttftMs),
+      ...(withEst ? [fmt(r.estPptMs)] : []),
+      fmt(r.prefillTps),
+      ...(withEst ? [fmt(r.estTps)] : []),
+      pct(r.spreadPct), secondsAndMinutes(r.seconds),
+    ]));
   }
   run.prefill = rows;
+  if (withEst) console.log(`  est_ppt_ms is ttft_ms minus the ${fmt(latencyMs)}ms request floor measured above; est_tok/s is the rate that follows from it`);
   const secs = (performance.now() - t0) / 1000;
   timings.push({ label: 'Prompt processing', seconds: secs });
   console.log(`  total ${secondsAndMinutes(secs)} for ${sizes.length} size${sizes.length === 1 ? '' : 's'} × ${runs} run${runs === 1 ? '' : 's'}`);
@@ -613,22 +743,52 @@ if (phases.includes('prefill')) {
 
 if (phases.includes('generation')) {
   const t0 = performance.now();
-  console.log(`\nGENERATION  — max_tokens=${genTokens}, short prompt`);
-  console.log('  out_tok    ttft_ms    gen_tok/s   reasoning_tok              took_s (took_min)');
-  const rs = [];
-  for (let i = 0; i < runs; i++) rs.push(await measure(buildPrompt(64, `g-${nonce++}`) + ' Write a long detailed essay about distributed systems.', genTokens));
+  const deep = depths.some((d) => d > 0);
+  console.log(`\nGENERATION  — max_tokens=${genTokens}${deep ? `, behind a preloaded context of ${depths.join(', ')} tokens` : ', short prompt'}`);
+  const table = cols([
+    ['ctx_tok', 9], ['out_tok', 11], ['think_tok', 12], ['ttft_ms', 11],
+    ['gen_tok/s', 13], ['spread', 9], ['peak_tok/s', 13], ['took_s (took_min)', 28],
+  ]);
+  console.log(table.header);
+  const rows = [];
+  const allRaw = [];
+  for (const depth of depths) {
+    const s0 = performance.now();
+    const rs = [];
+    for (let i = 0; i < runs; i++) {
+      const tag = `g${depth}-${nonce++}`;
+      const ask = buildPrompt(64, tag) + ' Write a long detailed essay about distributed systems.';
+      // Depth goes in a system message and the question stays in the user turn,
+      // so what is measured is decode with a full KV cache — not a longer
+      // question. The nonce still leads, so no two rows share a cached prefix.
+      const messages = depth > 0
+        ? [{ role: 'system', content: `Reference material.\n\n${buildPrompt(depth, `ctx-${tag}`)}` }, { role: 'user', content: ask }]
+        : [{ role: 'user', content: ask }];
+      rs.push(await chat({ messages, maxTokens: genTokens }));
+    }
+    allRaw.push(...rs);
+    const r = {
+      phase: 'generation', depth, ctxTokens: rs[0].promptTokens,
+      outTokens: median(rs.map((x) => x.outTokens)), ttftMs: median(rs.map((x) => x.ttftMs)),
+      genTps: median(rs.map((x) => x.genTps)), spreadPct: spread(rs.map((x) => x.genTps)),
+      peakTps: median(rs.map((x) => x.peakTps)),
+      reasoningTokens: median(rs.map((x) => x.reasoningTokens)),
+      seconds: (performance.now() - s0) / 1000,
+    };
+    rows.push(r);
+    results.push({ ...r, raw: rs });
+    console.log(table.row([
+      r.ctxTokens ?? depth, r.outTokens, r.reasoningTokens ?? 0, fmt(r.ttftMs),
+      fmt(r.genTps, 2), pct(r.spreadPct), fmt(r.peakTps, 2), secondsAndMinutes(r.seconds),
+    ]));
+  }
   const secs = (performance.now() - t0) / 1000;
-  const r = {
-    phase: 'generation', outTokens: median(rs.map((x) => x.outTokens)), ttftMs: median(rs.map((x) => x.ttftMs)),
-    genTps: median(rs.map((x) => x.genTps)), reasoningTokens: median(rs.map((x) => x.reasoningTokens)), seconds: secs,
-  };
-  run.generation = r;
-  results.push({ ...r, raw: rs });
-  console.log(`  ${String(r.outTokens).padStart(7)}${fmt(r.ttftMs).padStart(11)}${fmt(r.genTps, 2).padStart(13)}${String(r.reasoningTokens ?? 0).padStart(16)}${secondsAndMinutes(secs).padStart(28)}`);
-  if (rs[0].approximate) console.log('  note: server returned no usage block; out_tok is an approximation from stream chunks');
-  if (rs.some((x) => x.singleChunk)) console.log('  note: response arrived in one chunk; ttft_ms is the whole request and gen_tok/s is end-to-end, not steady-state decode');
+  run.generation = rows;
+  if (allRaw[0].approximate) console.log('  note: server returned no usage block; out_tok is an approximation from stream chunks');
+  if (allRaw.some((x) => x.singleChunk)) console.log('  note: response arrived in one chunk; ttft_ms is the whole request and gen_tok/s is end-to-end, not steady-state decode');
+  if (allRaw.every((x) => x.peakTps == null)) console.log('  note: no run streamed for a full second, so there is no window to read a peak from');
   timings.push({ label: 'Generation', seconds: secs });
-  console.log(`  total ${secondsAndMinutes(secs)} for ${runs} run${runs === 1 ? '' : 's'}`);
+  console.log(`  total ${secondsAndMinutes(secs)} for ${depths.length} depth${depths.length === 1 ? '' : 's'} × ${runs} run${runs === 1 ? '' : 's'}`);
 }
 
 if (phases.includes('agentic')) {
@@ -754,4 +914,4 @@ console.log(`  ${'Whole run'.padEnd(tw)}${secondsAndMinutes(totalS)}`);
 console.log(`\nreport   ${join(runDir, 'report.html')}`);
 if (vfs.has('index.html')) console.log(`app      ${join(appDir, 'index.html')}`);
 
-if (args.json) console.log('\n' + JSON.stringify({ target, base, model, runs, totalS, timings, results }, null, 2));
+if (args.json) console.log('\n' + JSON.stringify({ target, base, model, runs, depths, latencyMode, latencyMs, totalS, timings, results }, null, 2));
