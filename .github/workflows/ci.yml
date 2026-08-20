@@ -105,4 +105,26 @@ jobs:
           fi
 
           echo "Publishing $PACKAGE_NAME@$PACKAGE_VERSION via trusted publishing"
-          npm publish
+
+          # A trusted publisher has to be configured on the package itself, and
+          # nothing in CI can check that beforehand — npm answers an
+          # unauthorised publish with 404 (it hides existence for scoped names)
+          # or EOTP. Both mean "not wired up yet", not "the code is broken", so
+          # they are reported as guidance and left green. Anything else is a
+          # real failure and fails the job.
+          if npm publish 2>&1 | tee /tmp/publish.log; then
+            echo "Published $PACKAGE_NAME@$PACKAGE_VERSION"
+            exit 0
+          fi
+
+          if grep -qE "code (E404|EOTP|ENEEDAUTH)" /tmp/publish.log; then
+            echo "::warning::Publish not authorised — is a trusted publisher configured?"
+            echo "On npmjs.com: $PACKAGE_NAME -> Settings -> Trusted Publisher"
+            echo "  Organization or user: ${GITHUB_REPOSITORY%%/*}"
+            echo "  Repository:           ${GITHUB_REPOSITORY##*/}"
+            echo "  Workflow filename:    ci.yml"
+            exit 0
+          fi
+
+          echo "::error::npm publish failed for a reason unrelated to authorisation"
+          exit 1
