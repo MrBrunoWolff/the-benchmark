@@ -38,7 +38,6 @@
     "agentic": "node bench.mjs --phases agentic",
     "all": "node bench.mjs --phases prefill,generation,agentic",
     "test": "bun test",
-    "audit": "bun audit --audit-level=high",
     "build:binaries": "bun scripts/build-binaries.ts"
   },
   "packageManager": "bun@1.4.0"

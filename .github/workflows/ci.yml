@@ -20,6 +20,10 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      # No audit step, deliberately: this package has zero dependencies, so
+      # `bun install` leaves no lockfile and `bun audit` exits 1 with "missing
+      # lockfile, nothing to audit". Add one back alongside a first dependency.
+
       # Black-box tests: the real CLI is driven as a subprocess against a mock
       # OpenAI-compatible server, under both bun and node. Bun is only the test
       # runtime — bench.mjs itself stays dependency-free and Node-compatible.
