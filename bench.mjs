@@ -120,7 +120,10 @@ const buildPrompt = (approxTokens, nonce) =>
   `run-${RUN_ID}-${nonce}. ` + Array.from({ length: approxTokens }, (_, i) => FILLER[i % FILLER.length]).join(' ');
 
 async function resolveModel() {
-  if (args.model) return args.model;
+  // Wrapped, not bare: every other return here is an info object and the caller
+  // reads `.id`, so returning the raw string left `model` undefined — it was
+  // dropped from the request body entirely and printed as "model undefined".
+  if (args.model) return { id: args.model };
   // LM Studio's native endpoint reports load state; prefer an already-loaded model.
   try {
     const r = await fetch(`${base}/api/v0/models`);

@@ -13,7 +13,8 @@
     "LICENSE"
   ],
   "engines": {
-    "node": ">=18"
+    "node": ">=18",
+    "bun": ">=1.4.0"
   },
   "publishConfig": {
     "access": "public"
@@ -22,10 +23,23 @@
     "type": "git",
     "url": "git+https://github.com/MrBrunoWolff/the-benchmark.git"
   },
-  "keywords": ["llm", "benchmark", "lmstudio", "ollama", "llama.cpp", "vllm", "tokens-per-second", "agentic"],
+  "keywords": [
+    "llm",
+    "benchmark",
+    "lmstudio",
+    "ollama",
+    "llama.cpp",
+    "vllm",
+    "tokens-per-second",
+    "agentic"
+  ],
   "scripts": {
     "bench": "node bench.mjs",
     "agentic": "node bench.mjs --phases agentic",
-    "all": "node bench.mjs --phases prefill,generation,agentic"
-  }
+    "all": "node bench.mjs --phases prefill,generation,agentic",
+    "test": "bun test",
+    "audit": "bun audit --audit-level=high",
+    "build:binaries": "bun scripts/build-binaries.ts"
+  },
+  "packageManager": "bun@1.4.0"
 }

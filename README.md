@@ -41,6 +41,19 @@ There is no git-spec shortcut worth documenting: `bunx` rejects git and
 local-tarball specs outright, and `npx github:…` is blocked by default on npm 12
 (`allow-git = "none"`).
 
+### Standalone binaries
+
+Releases also carry self-contained binaries that need neither Node nor Bun
+installed — handy for benchmarking a box you would rather not put a toolchain on.
+
+```bash
+./the-benchmark-linux-x64 --phases prefill,generation
+```
+
+They are large (roughly 60–80 MB each), because each one embeds a runtime. `npx`
+and `bunx` above remain the primary entry points; this is an extra, not a
+replacement. Build them yourself with `bun run build:binaries`.
+
 ## Usage
 
 Cloned instead? Load a model in your backend, then:
