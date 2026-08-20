@@ -4,6 +4,9 @@ on:
   push:
     branches: [main]
   pull_request:
+  # Lets a release be triggered deliberately — `gh workflow run ci.yml` —
+  # instead of pushing an empty commit just to re-run the publish job.
+  workflow_dispatch:
 
 jobs:
   quality:
@@ -45,7 +48,9 @@ jobs:
     name: Publish to npm
     needs: quality
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     # Trusted publishing (OIDC): npm verifies this workflow's identity against
     # the trusted publisher configured on the package, so there is no token to
     # store, leak or rotate — and no 2FA prompt to get stuck behind. `id-token`
