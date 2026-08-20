@@ -40,3 +40,69 @@ jobs:
       # default CJS output rejects. Compiling one target proves releases can build.
       - name: Compile check
         run: bun run build:binaries bun-linux-x64
+
+  publish:
+    name: Publish to npm
+    needs: quality
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    # Trusted publishing (OIDC): npm verifies this workflow's identity against
+    # the trusted publisher configured on the package, so there is no token to
+    # store, leak or rotate — and no 2FA prompt to get stuck behind. `id-token`
+    # is what lets the runner mint the OIDC token.
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.4.0
+
+      # npm drives the publish, not bun: trusted publishing is an npm CLI
+      # feature and `bun publish` has no OIDC support.
+      - name: Setup Node.js for npm publishing
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: '24.x'
+          registry-url: 'https://registry.npmjs.org'
+
+      # Trusted publishing needs npm >= 11.5.1.
+      - name: Ensure npm supports trusted publishing
+        run: |
+          npm install -g npm@latest
+          echo "npm $(npm --version) / node $(node --version)"
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+
+      - name: Publish to npm (if version changed)
+        run: |
+          # No NODE_AUTH_TOKEN on purpose: with a trusted publisher configured,
+          # the CLI exchanges this job's OIDC identity for a short-lived
+          # credential itself, and npm attaches a provenance attestation.
+          PACKAGE_VERSION=$(node -p "require('./package.json').version")
+          PACKAGE_NAME=$(node -p "require('./package.json').name")
+
+          # Trusted publishing cannot perform a package's *first* publish: npm
+          # requires the package to exist before a trusted publisher can be
+          # configured on it. Skip until that one-time bootstrap is done, so CI
+          # is not red for a reason unrelated to the code.
+          if ! npm view "$PACKAGE_NAME" version >/dev/null 2>&1; then
+            echo "$PACKAGE_NAME does not exist on npm yet."
+            echo "Publish once manually, then configure the trusted publisher"
+            echo "(repository: this one, workflow: ci.yml)."
+            exit 0
+          fi
+
+          if npm view "$PACKAGE_NAME@$PACKAGE_VERSION" version >/dev/null 2>&1; then
+            echo "Version $PACKAGE_VERSION already exists, skipping publish"
+            exit 0
+          fi
+
+          echo "Publishing $PACKAGE_NAME@$PACKAGE_VERSION via trusted publishing"
+          npm publish
