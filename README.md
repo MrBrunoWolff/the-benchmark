@@ -12,9 +12,10 @@ One file, zero dependencies, nothing to clone. Load a model in LM Studio or Olla
 first — the backend is auto-detected.
 
 ```bash
-bunx the-benchmark                                     # prefill + generation, under a minute
-bunx the-benchmark --phases prefill,generation,agentic # everything, several minutes
-npx -y the-benchmark                                   # same, via npm
+bunx the-benchmark                                                # prefill + generation, under a minute
+bunx the-benchmark --phases concurrent                            # how many requests at once this box serves
+bunx the-benchmark --phases prefill,generation,concurrent,agentic # everything, several minutes
+npx -y the-benchmark                                              # same, via npm
 ```
 
 Published as [`the-benchmark`](https://www.npmjs.com/package/the-benchmark) — 4
@@ -60,8 +61,10 @@ Cloned instead? Load a model in your backend, then:
 
 ```bash
 bun run bench             # auto-detect the running local server
+bun run concurrent        # only the concurrency sweep
+bun run gallery           # nine SVGs drawn at once, watched live
 bun run agentic           # only the agentic coding run
-bun run all               # all three phases
+bun run all               # all four phases
 node bench.mjs --url http://localhost:8080   # anything else
 ```
 
@@ -77,9 +80,18 @@ number that actually matters for agent work — sweep the context depth:
 node bench.mjs --depth 0,4096,16384
 ```
 
-Three phases: **prefill**, **generation**, and **agentic**. The first two run by
-default and take under a minute. The agentic phase is opt-in via `--phases`
-because it is a real multi-turn agent loop — expect several minutes.
+To find out how many agents one local server can actually sit behind, sweep the
+number of requests in flight at once and watch it happen:
+
+```bash
+node bench.mjs --phases concurrent --concurrency 1,2,4,8
+```
+
+Four phases: **prefill**, **generation**, **concurrent**, and **agentic**. The
+first two run by default and take under a minute. The other two are opt-in via
+`--phases` — `concurrent` because it needs a server configured for parallel
+requests to mean anything, `agentic` because it is a real multi-turn agent loop.
+Expect several minutes for either.
 
 On a **thinking** model, add `--reasoning none` or it will very likely never act
 at all:
@@ -108,7 +120,13 @@ Override with `--model`.
 | `--gen-tokens` | `256` | `max_tokens` for the generation test |
 | `--depth` | `0` | Context depths for the generation test — decode is measured behind a preloaded context of each size, so `0,4096,16384` shows how much the model slows as the KV cache fills |
 | `--latency-mode` | `generation` | How the request floor is measured before it is subtracted from prefill: `generation` (a one-token request), `api` (a `/v1/models` fetch), or `none` to skip it and drop the `est_` columns |
-| `--phases` | `prefill,generation` | Which phases to run; add `agentic` to include the agent loop |
+| `--phases` | `prefill,generation` | Which phases to run; add `concurrent` and/or `agentic` for the other two |
+| `--concurrency` | `1,2,4,8` | Concurrency: slot counts to sweep. In gallery mode the widest level is the pool size |
+| `--conc-tokens` | `192` | Concurrency: `max_tokens` per slot in the sweep |
+| `--scenario` | `bench` | Concurrency: `bench` for the measurement sweep, or `svg` / `ascii` / `code` / `translate` for a gallery |
+| `--topic` | per scenario | Gallery: what the tasks are about — a subject for `svg`/`ascii`/`code`, the sentence itself for `translate` |
+| `--tasks` | widest `--concurrency` | Gallery: how many tasks to produce. May exceed the slot count; slots pull from one queue |
+| `--no-live` | off | Turn off the in-place live dashboard on a TTY (it is already off when stdout is not one) |
 | `--max-turns` | `12` | Agentic: turn cap before the run is called unconverged |
 | `--turn-tokens` | `4096` | Agentic: `max_tokens` per turn — must fit the thinking **and** the tool call |
 | `--turn-timeout` | `180` | Agentic: seconds a single turn may take before it is recorded as stalled |
@@ -118,10 +136,11 @@ Override with `--model`.
 
 ## Metrics
 
-Three phases, measured separately, because they are bound by different things:
-prefill is compute-bound, generation is memory-bandwidth-bound, and the agentic
-loop is bound by whether the model can hold a tool protocol together at all. A
-machine — or a model — can win one and lose the others.
+Four phases, measured separately, because they are bound by different things:
+prefill is compute-bound, generation is memory-bandwidth-bound, concurrency is
+bound by how the server shares both, and the agentic loop is bound by whether the
+model can hold a tool protocol together at all. A machine — or a model — can win
+one and lose the others.
 
 ### Prompt processing (prefill) — how fast the model *reads*
 
@@ -194,6 +213,144 @@ sometimes negligible and sometimes decisive.
 Prefill needs no equivalent flag — `--sizes` already sweeps input length, which is
 the same measurement. Measuring prefill "at depth" without a prefix-cache round
 trip would just be prefill of a larger prompt.
+
+### Concurrency — how many at *once*
+
+Every other phase sends one request at a time, which measures the **model**. This
+one fires N at once and measures the **server**: whether one local backend can sit
+behind more than a single agent, and how much it costs each of them when it does.
+
+```bash
+node bench.mjs --phases concurrent                          # sweep 1, 2, 4, 8
+node bench.mjs --phases concurrent --concurrency 1,2,4,8,16
+```
+
+Each level sends N copies of the same request shape the generation phase uses —
+unique nonce per slot, so no two share a cache prefix — and starts them in the
+same tick, so the measurement is a load and not a ramp.
+
+| Column | Meaning | Better |
+| --- | --- | --- |
+| `slots` | How many requests were in flight together | — |
+| `overlap` | How many were *actually* streaming at the same moment, averaged over the level. **Read this one first** | higher |
+| `agg_tok/s` | Every slot's output tokens over the level's wall clock. Prompt processing is inside that window, so this is total goodput | higher |
+| `slot_tok/s` | Median steady-state decode of *one* stream while the others compete with it | higher |
+| `ttft_ms` | Median time to first token across slots — half the callers waited longer | lower |
+| `max_ttft_ms` | The unluckiest slot. The gap from the median is queueing | lower |
+| `scale` | `agg_tok/s` relative to the first level in the sweep | higher |
+| `eff` | `scale` divided by the slot ratio. 100% would be one full slot of throughput per added slot | higher |
+| `failed` | Slots that errored or never answered inside `--turn-timeout` | lower |
+
+The two throughput columns pull in opposite directions, and reading only one of
+them is the mistake this phase exists to prevent:
+
+- **`agg_tok/s` goes up** as slots are added — until it plateaus.
+- **`slot_tok/s` goes down**, always. Every caller is now sharing memory bandwidth.
+
+#### Check `overlap` before you believe anything else
+
+Firing N requests at once is not the same as a server *running* N at once, and the
+difference is invisible in throughput. A backend that queues serves them strictly
+one after another — yet its `agg_tok/s` **still rises with N**, because one
+request's prompt processing overlaps the decode of whoever is ahead in the queue.
+Read the scaling curve off that and you will conclude your box batches beautifully
+when it has never batched anything.
+
+`overlap` is the mean number of slots mid-stream at the same moment. Close to
+`slots` is real parallelism; close to `1.0` is a queue in a costume. Here is the
+same sweep against a batching server and a queueing one:
+
+```
+    slots  overlap   agg_tok/s   slot_tok/s   ttft_ms   max_ttft_ms
+        1      1.0        75.3        185.4     194.6         194.6
+        4      3.3       126.5         49.3     259.4         332.6   <- batching
+
+        1      1.0        49.6        184.9     358.9         358.9
+        4      1.0        60.1        186.6     875.3        1474.2   <- queueing
+```
+
+The queueing run gives itself away three times over: `overlap` stays at 1.0,
+`slot_tok/s` **does not drop** (nobody is competing for bandwidth), and
+`max_ttft_ms` explodes because the last request waited for all three ahead of it.
+Meanwhile `agg_tok/s` went *up*, which is the whole trap. When `overlap` collapses
+like that the benchmark says so in capitals and names the fix.
+
+The same thing looks obvious on the live dashboard once you know to watch for it:
+real parallelism shows every slot's token count climbing together, while a queue
+leaves them parked on `sending` and lights them up one at a time.
+
+The **knee** is the widest level still converting added slots into throughput at
+70% of linear or better. Past it you are mostly buying queueing: aggregate barely
+moves, `max_ttft_ms` climbs, and every individual agent feels slower. That is the
+number to size a fleet of local agents against.
+
+One asymmetry to expect: at one slot, `agg_tok/s` reads *lower* than `slot_tok/s`.
+That is not a bug. Aggregate counts prompt processing and the request round trip
+inside its window; per-slot decode explicitly excludes both.
+
+**The server has to have been started for it.** A concurrency level wider than the
+backend's parallel-request setting does not fail loudly — the surplus just queues,
+and the row then measures the queue instead of the hardware. Set it first:
+
+| Backend | Setting |
+| --- | --- |
+| llama.cpp | `llama-server -np N`. Note `-c` is the **total** context, split across slots — context per slot is `-c / -np` |
+| Ollama | `OLLAMA_NUM_PARALLEL=N` |
+| vLLM | `--max-num-seqs` (already high by default) |
+| LM Studio | Serves concurrent requests from a loaded model; if a level shows `failed` slots, check the server's request settings |
+
+Watch for `failed` slots and for `eff` collapsing between one level and the next —
+both usually mean the sweep went wider than the server was configured for, not
+that the hardware ran out.
+
+### Gallery — N agents, N *different* jobs
+
+The sweep sends N copies of one prompt because that is what isolates the variable.
+The gallery does the opposite: each slot gets distinct work, and the output is kept
+and rendered into the report. This is the part taken from the [Gemma cookbook's
+concurrent demo](https://github.com/google-gemma/cookbook/tree/main/apps/concurrent) —
+worth having because "10 agents at once" is a claim you want to *look* at, not just
+read a tok/s figure for.
+
+```bash
+node bench.mjs --phases concurrent --scenario svg       --topic "deep sea life" --tasks 9
+node bench.mjs --phases concurrent --scenario ascii     --topic "animals"
+node bench.mjs --phases concurrent --scenario code      --topic "binary search"
+node bench.mjs --phases concurrent --scenario translate --topic "Local models are fast enough now."
+```
+
+| Scenario | Each slot produces | Rendered as |
+| --- | --- | --- |
+| `svg` | One `<svg>` icon | The drawing itself, inline |
+| `ascii` | ASCII art | Monospace, as sent |
+| `code` | One implementation, one language each | Syntax-plain source |
+| `translate` | The topic sentence in one language | The text |
+
+A planner call goes first: the model is asked for `--tasks` distinct instructions
+as a JSON array. Whether it manages that is itself a result — small quants often
+cannot — and the run says so rather than hiding it, falling back to generated
+instructions for whatever it failed to plan.
+
+`--tasks` may exceed `--concurrency`: slots pull from one shared queue, so 20 tasks
+across 8 slots keeps all 8 busy rather than running three ragged batches. The
+widest `--concurrency` level is used as the pool size; a gallery is not a sweep.
+
+Model output goes straight into a file you open in a browser, so SVGs are stripped
+of `<script>`, event-handler attributes and `javascript:` URLs before they land.
+
+### The live view
+
+While a level runs, each slot gets a row that updates in place — state, tokens out,
+live tok/s, elapsed, a progress bar against the token budget — over a running
+aggregate. It is erased when the level ends, because the table printed underneath
+it is the record and four levels of leftover dashboards are not.
+
+The Gemma cookbook app does this by opening a grid of macOS Terminal windows over
+AppleScript. That cannot travel here: `bench.mjs` has to keep working under plain
+`node` on Linux and Windows and ship as a static binary. Same idea, one terminal.
+
+It is TTY-gated, so piping to a file or running in CI produces plain output with no
+escape codes. `--no-live` switches it off on a TTY too.
 
 ### Agentic coding — can it actually *drive tools*
 
@@ -382,6 +539,10 @@ numbers as the terminal, but with the things a terse column header cannot carry:
 - **A time-taken table** with each phase's share of the whole run.
 - **A live `<iframe>` of the app the model built**, next to every generated file
   in a foldable block.
+- **The gallery**, when a `--scenario` ran: what every slot produced, rendered —
+  the SVGs drawn, the ASCII art in monospace, the code as code — each captioned
+  with its own tokens, decode rate and wall clock, and the instruction it was
+  given in a foldable block underneath.
 
 When the agentic phase ran, the app itself is written alongside it:
 
@@ -1146,10 +1307,25 @@ llama-bench-style numbers to OpenAI-compatible endpoints: measuring at context
 depth, subtracting an estimated latency baseline, reporting run-to-run variance
 next to the central number, and reading peak throughput off a one-second window.
 
-Deliberately not taken from it: concurrency sweeps (a serving-capacity question,
-where this is a single-user one), local HuggingFace tokenizers (server-reported
-`usage` is exact and needs no dependency), and prefix-cache measurement, which is
-the direct opposite of what the nonce prefixing here exists to defeat.
+The concurrency phase and its gallery come from the [Gemma cookbook's concurrent
+demo](https://github.com/google-gemma/cookbook/tree/main/apps/concurrent), which
+runs N Gemma instances against one `llama-server` and shows them working in a grid
+of Terminal windows. Taken: the slot model, the live view, the model-planned task
+list, and the idea that concurrent output is worth *rendering* rather than only
+counting. Not taken: the AppleScript window grid, which is macOS-only and cannot
+live in a file whose whole contract is running anywhere `node` does — one terminal
+with rows repainted in place does the same job.
+
+Concurrency was until recently listed here as deliberately out of scope, on the
+grounds that it is a serving-capacity question and this is a single-user tool. That
+was wrong in one specific way: the single user in question increasingly runs
+several agents at once, which is a serving-capacity question wearing a single-user
+hat. Hence the phase.
+
+Deliberately not taken from llama-benchy: local HuggingFace tokenizers
+(server-reported `usage` is exact and needs no dependency), and prefix-cache
+measurement, which is the direct opposite of what the nonce prefixing here exists
+to defeat.
 
 Its remaining idea worth revisiting is sourcing prompts from a real book rather
 than a repeated filler phrase, so that speculative decoding and MTP are measured

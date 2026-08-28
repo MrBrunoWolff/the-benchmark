@@ -72,7 +72,7 @@ try {
 const runs = Number(args.runs ?? 3);
 const genTokens = Number(args['gen-tokens'] ?? 256);
 const sizes = String(args.sizes ?? '256,2048,8192').split(',').map(Number);
-const PHASES = ['prefill', 'generation', 'agentic'];
+const PHASES = ['prefill', 'generation', 'concurrent', 'agentic'];
 const phases = String(args.phases ?? 'prefill,generation').split(',').map((s) => s.trim()).filter(Boolean);
 const badPhase = phases.find((p) => !PHASES.includes(p));
 if (badPhase) {
@@ -91,6 +91,36 @@ if (!depths.length) {
   console.error('--depth must be one or more non-negative token counts, e.g. --depth 0,4096,16384');
   process.exit(1);
 }
+// Concurrency. Every other phase measures one stream at a time, which answers
+// "how fast is this model" and never "how many of these can this box serve at
+// once" — the question that decides whether one local server can back more than
+// a single agent. Slots are swept so the point where added parallelism stops
+// buying throughput is visible rather than guessed.
+const concurrency = [...new Set(String(args.concurrency ?? '1,2,4,8').split(',').map(Number))]
+  .filter((n) => Number.isInteger(n) && n >= 1)
+  .sort((a, b) => a - b);
+if (!concurrency.length) {
+  console.error('--concurrency must be one or more slot counts, e.g. --concurrency 1,2,4,8');
+  process.exit(1);
+}
+const concTokens = Number(args['conc-tokens'] ?? 192);
+// Scenario names are listed here rather than beside their definitions further
+// down so a typo is rejected before a multi-minute run starts, not after it.
+const SCENARIOS = ['bench', 'svg', 'ascii', 'code', 'translate'];
+const scenario = String(args.scenario ?? 'bench');
+if (!SCENARIOS.includes(scenario)) {
+  console.error(`unknown --scenario "${scenario}"; expected one of: ${SCENARIOS.join(', ')}`);
+  process.exit(1);
+}
+const topic = typeof args.topic === 'string' ? args.topic : null;
+// A gallery is not a sweep: it fans distinct work out across a fixed pool, so it
+// takes the widest level asked for and ignores the rest.
+const slotCount = concurrency[concurrency.length - 1];
+const taskCount = Math.max(1, Number(args.tasks ?? slotCount) || slotCount);
+// The dashboard rewrites lines in place, which is unreadable in a log file and
+// actively hostile in CI. TTY-gated, and switchable off on a TTY too.
+const live = !args['no-live'] && process.stdout.isTTY === true;
+
 const LATENCY_MODES = ['generation', 'api', 'none'];
 const latencyMode = String(args['latency-mode'] ?? 'generation');
 if (!LATENCY_MODES.includes(latencyMode)) {
@@ -100,6 +130,9 @@ if (!LATENCY_MODES.includes(latencyMode)) {
 const outRoot = resolve(String(args.out ?? 'out'));
 
 const die = (e) => {
+  // The live dashboard hides the cursor while it repaints. Crashing out of the
+  // middle of that would otherwise leave the user's terminal without one.
+  if (process.stdout.isTTY) process.stdout.write('\x1b[?25h');
   const msg = e?.cause?.code ?? e?.message ?? String(e);
   console.error(`\nbench failed: ${msg}`);
   console.error(`  target: ${base}`);
@@ -108,6 +141,12 @@ const die = (e) => {
 };
 process.on('uncaughtException', die);
 process.on('unhandledRejection', die);
+// Ctrl-C during a concurrency level would otherwise take the default exit path,
+// which skips the cursor restore above. 130 is the conventional code for it.
+process.on('SIGINT', () => {
+  if (process.stdout.isTTY) process.stdout.write('\x1b[?25h');
+  process.exit(130);
+});
 
 // One token per word for the filler; actual counts come from the server's usage block.
 const FILLER = 'benchmark filler token sequence for deterministic prompt length measurement '.trim().split(' ');
@@ -142,7 +181,7 @@ async function resolveModel() {
 // One request. Streams, times it, and accumulates any tool calls the model emits.
 class Stalled extends Error {}
 
-async function chat({ messages, tools, maxTokens, timeoutMs }) {
+async function chat({ messages, tools, maxTokens, timeoutMs, onEvent }) {
   const started = performance.now();
   const abort = new AbortController();
   const timer = timeoutMs ? setTimeout(() => abort.abort(), timeoutMs) : null;
@@ -168,6 +207,10 @@ async function chat({ messages, tools, maxTokens, timeoutMs }) {
     signal: abort.signal,
   });
   if (!res.ok) throw new Error(`HTTP ${res.status}: ${(await res.text()).slice(0, 300)}`);
+  // Headers are back, so the server has the request and is queueing or reading
+  // the prompt. The live dashboard needs that transition: without it a slot sits
+  // on "sending" for the whole prompt-processing window and reads as hung.
+  onEvent?.({ state: 'prefill', tokens: 0, ttftMs: null, elapsedMs: performance.now() - started });
 
   let ttft = null, chunks = 0, usage = null, buf = '', content = '', finishReason = null;
   const toolCalls = [];
@@ -179,6 +222,7 @@ async function chat({ messages, tools, maxTokens, timeoutMs }) {
     if (ttft === null) ttft = at;
     arrivals.push(at);
     chunks++;
+    onEvent?.({ state: 'decoding', tokens: chunks, ttftMs: ttft, elapsedMs: at });
   };
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
@@ -310,6 +354,12 @@ console.log(`phases   ${phases.join(', ')}`);
 if (reasoning) console.log(`reason   reasoning_effort=${reasoning}`);
 if (phases.some((p) => p === 'prefill' || p === 'generation')) console.log(`runs     ${runs} per row (median reported, spread shown alongside)`);
 if (phases.includes('generation') && depths.some((d) => d > 0)) console.log(`depth    ${depths.join(', ')} tokens of preloaded context`);
+if (phases.includes('concurrent')) {
+  console.log(scenario === 'bench'
+    ? `slots    ${concurrency.join(', ')} concurrent requests per level`
+    : `gallery  ${scenario} · ${taskCount} task${taskCount === 1 ? '' : 's'} across ${Math.min(slotCount, taskCount)} slot${Math.min(slotCount, taskCount) === 1 ? '' : 's'}`);
+  if (!live) console.log('live     off (stdout is not a TTY, or --no-live)');
+}
 console.log('');
 
 let nonce = 0;
@@ -453,6 +503,309 @@ function runTool(name, rawArgs) {
 
 
 // ---------------------------------------------------------------------------
+// Concurrency: N requests in flight against the same server at once, watched
+// live.
+//
+// Modelled on the Gemma cookbook's concurrent demo, minus the one part that
+// cannot travel: that app opens a grid of macOS Terminal windows over
+// AppleScript, and this file has to keep working under plain node on Linux and
+// Windows and ship as a static binary. Same idea, one terminal — a block of rows
+// repainted in place, and nothing at all when stdout is not a TTY, so a piped log
+// or a CI run keeps just the results tables.
+// ---------------------------------------------------------------------------
+
+// The dashboard owns no state. Callers mutate their slot objects as the stream
+// progresses and this only decides how the current values look, which keeps the
+// hot path (one mutation per token) free of formatting work.
+function createDashboard(slots, { title, showTask = false } = {}) {
+  const out = process.stdout;
+  const table = cols([['slot', 6], ['state', 11], ['out_tok', 10], ['tok/s', 9], ['elapsed', 10]]);
+  let started = 0;
+  let painted = 0;
+  let timer = null;
+
+  const width = () => Math.max(48, (out.columns || 100) - 1);
+  const clip = (s) => (s.length > width() ? `${s.slice(0, width() - 1)}…` : s);
+
+  // Progress against the token budget, the only length known ahead of time. A
+  // slot that stops early simply never fills its bar.
+  const bar = (slot) => {
+    const frac = slot.budget ? Math.min(1, slot.tokens / slot.budget) : 0;
+    const filled = Math.round(frac * 10);
+    return '█'.repeat(filled) + '░'.repeat(10 - filled);
+  };
+
+  // Live rate, not the final one: tokens since the first arrived over the time
+  // since it arrived, which is the same steady-state decode figure chat() reports
+  // at the end, just computed mid-flight.
+  const liveTps = (slot) => {
+    if (slot.tps != null) return slot.tps;
+    if (slot.ttftMs == null || slot.tokens < 2) return null;
+    const decodeMs = slot.elapsedMs - slot.ttftMs;
+    return decodeMs > 1 ? ((slot.tokens - 1) / decodeMs) * 1000 : null;
+  };
+
+  const render = () => {
+    const elapsedS = (performance.now() - started) / 1000;
+    const tokens = sum(slots.map((s) => s.tokens));
+    const done = slots.filter((s) => s.state === 'done' || s.state === 'failed' || s.state === 'idle').length;
+    const lines = [`  ${title}`, `${table.header}   progress${showTask ? '   task' : ''}`];
+    for (const slot of slots) {
+      const row = table.row([
+        slot.id,
+        slot.state,
+        slot.tokens || '—',
+        fmt(liveTps(slot), 1),
+        `${(slot.elapsedMs / 1000).toFixed(1)}s`,
+      ]);
+      lines.push(`${row}   ${bar(slot)}${showTask ? `   ${slot.task || ''}` : ''}`);
+    }
+    lines.push(`  ${'—'.repeat(20)}`);
+    lines.push(`  ${done}/${slots.length} finished · ${tokens} tok · ${fmt(elapsedS > 0 ? tokens / elapsedS : null, 1)} agg tok/s · ${elapsedS.toFixed(1)}s`);
+    return lines;
+  };
+
+  const paint = () => {
+    const lines = render();
+    if (painted) out.write(`\x1b[${painted}A`);
+    for (const line of lines) out.write(`\x1b[2K${clip(line)}\n`);
+    painted = lines.length;
+  };
+
+  return {
+    start() {
+      started = performance.now();
+      // Silent without a TTY: the results table is printed around this and a
+      // title line would land between its header and its first row.
+      if (!live) return;
+      out.write('\x1b[?25l');
+      paint();
+      timer = setInterval(paint, 100);
+      // The interval must never be the reason the process stays alive; stop()
+      // clears it on the happy path, and this covers the crash path.
+      timer.unref?.();
+    },
+    // Anything the repainting rows would have shown that still has to reach a
+    // log file — failures, mainly, which a results table only reports as a count.
+    note(line) {
+      if (!live) console.log(`    ${line}`);
+    },
+    // The dashboard is transient and the table printed after it is the record,
+    // so erase rather than leaving one block of rows per level in the scrollback.
+    stop() {
+      if (!live) return;
+      clearInterval(timer);
+      timer = null;
+      if (painted) out.write(`\x1b[${painted}A\x1b[0J`);
+      painted = 0;
+      out.write('\x1b[?25h');
+    },
+  };
+}
+
+
+// Mean number of slots actually streaming at the same time, integrated over the
+// period any of them was. This is the phase's most important number and the one
+// throughput cannot express: a backend that queues instead of batching returns
+// ~1.0 here no matter how many slots were asked for, and its aggregate tok/s
+// still creeps up with N purely because prompt processing overlaps the decode of
+// whoever is ahead in the queue. Without it, "is my server actually running
+// these in parallel" is a question the benchmark invites and cannot answer.
+function meanConcurrency(windows) {
+  const events = [];
+  for (const [from, to] of windows) {
+    if (!(to > from)) continue;
+    events.push([from, 1], [to, -1]);
+  }
+  if (!events.length) return null;
+  // Ends before starts at an identical timestamp, so one stream finishing exactly
+  // as the next begins reads as strictly serial rather than as an overlap.
+  events.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  let active = 0, area = 0, union = 0, prev = events[0][0];
+  for (const [at, delta] of events) {
+    if (active > 0) {
+      area += active * (at - prev);
+      union += at - prev;
+    }
+    active += delta;
+    prev = at;
+  }
+  return union > 0 ? area / union : null;
+}
+// One request occupying one slot, reporting progress as it streams. A slot that
+// fails or stalls is a result about the server under load, not a crash, so it is
+// recorded and the level continues.
+async function runSlot(slot, messages, maxTokens) {
+  slot.state = 'sending';
+  slot.tokens = 0;
+  slot.ttftMs = null;
+  slot.tps = null;
+  slot.elapsedMs = 0;
+  slot.error = null;
+  // Nothing arrives between sending the request and the first token, so without
+  // this the row's clock would sit at zero through the whole prefill window and
+  // read as a hung slot. Absolute, not incremental, so it cannot drift ahead of
+  // the elapsed times the stream itself reports.
+  const startedAt = performance.now();
+  const ticking = setInterval(() => { slot.elapsedMs = performance.now() - startedAt; }, 100);
+  ticking.unref?.();
+  try {
+    const r = await chat({
+      messages,
+      maxTokens,
+      timeoutMs: turnTimeout,
+      onEvent: (e) => {
+        slot.state = e.state;
+        slot.tokens = e.tokens;
+        slot.ttftMs = e.ttftMs;
+        slot.elapsedMs = e.elapsedMs;
+      },
+    });
+    slot.state = 'done';
+    slot.tokens = r.outTokens;
+    slot.elapsedMs = r.totalMs;
+    slot.tps = r.genTps;
+    // The streaming window in absolute time. Queue time before the first token is
+    // deliberately outside it: on a server that serialises, every slot is "in
+    // flight" for the whole level and only the decode windows tell them apart.
+    if (r.ttftMs != null) slot.windows.push([startedAt + r.ttftMs, startedAt + r.totalMs]);
+    return r;
+  } catch (e) {
+    slot.state = 'failed';
+    slot.error = e instanceof Stalled ? e.message : (e?.message ?? String(e));
+    return null;
+  } finally {
+    clearInterval(ticking);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Gallery scenarios. Instead of N copies of one request, each slot gets distinct
+// work and the output is kept and rendered — the cookbook demo's shape. The
+// numbers are still measured; the point is watching N agents produce N different
+// things at once and then looking at what came out.
+// ---------------------------------------------------------------------------
+
+const stripFences = (s) => String(s ?? '').replace(/^\s*```[\w-]*\r?\n?/, '').replace(/```\s*$/, '').trim();
+
+// Model output ends up inside a report the user opens in a browser. Take the
+// first svg element and strip the three things that turn one into an execution
+// vector before it gets written to disk.
+function extractSvg(content) {
+  const m = /<svg[\s\S]*<\/svg>/i.exec(content ?? '');
+  if (!m) return null;
+  return m[0]
+    .replace(/<script[\s\S]*?<\/script>/gi, '')
+    .replace(/\son\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, '')
+    .replace(/\s(?:xlink:)?href\s*=\s*("|')\s*javascript:[^"']*\1/gi, '');
+}
+
+const SCENARIO_DEFS = {
+  svg: {
+    label: 'SVG',
+    what: 'nine icons drawn as raw SVG',
+    defaultTopic: 'technology and AI',
+    maxTokens: 900,
+    system: 'You are an SVG artist. Reply with ONE <svg> element and nothing else: no markdown fences, no explanation, no <script>. Use viewBox="0 0 200 200", flat solid colours, and simple geometric shapes.',
+    plan: {
+      system: 'Reply with ONLY a JSON array of {n} objects, each with "name" (two to four words) and "instruction" (one sentence telling an SVG artist exactly what to draw). No prose, no markdown fences.',
+      user: 'Topic: "{topic}". Produce {n} distinct, visually different drawing instructions.',
+    },
+    fallback: (topic, i) => `Draw a simple flat-colour icon representing "${topic}", variation ${i + 1}. Make it visually distinct from the others.`,
+    card: (r) => {
+      const svg = extractSvg(r.content);
+      return svg ? `<div class="art">${svg}</div>` : '<p class="note">the reply contained no SVG element</p>';
+    },
+  },
+  ascii: {
+    label: 'ASCII art',
+    what: 'ASCII art, one piece per slot',
+    defaultTopic: 'animals',
+    maxTokens: 600,
+    system: 'You are an ASCII artist. Reply with ONLY the artwork as plain monospace text, at most 20 lines and 60 columns wide. No markdown fences, no title, no explanation.',
+    plan: {
+      system: 'Reply with ONLY a JSON array of {n} objects, each with "name" (two to four words) and "instruction" (one sentence naming exactly what to render as ASCII art). No prose, no markdown fences.',
+      user: 'Topic: "{topic}". Produce {n} distinct subjects.',
+    },
+    fallback: (topic, i) => `Render ASCII art of a subject from "${topic}", choice ${i + 1}. Pick something different from the obvious first answer.`,
+    card: (r) => `<pre class="ascii">${esc(stripFences(r.content))}</pre>`,
+  },
+  code: {
+    label: 'Code',
+    what: 'one implementation per slot',
+    defaultTopic: 'FizzBuzz',
+    maxTokens: 900,
+    system: 'You are a programmer. Reply with ONLY source code — no prose, no explanation, no markdown fences. Keep it under 40 lines and make it run as-is.',
+    plan: {
+      system: 'Reply with ONLY a JSON array of {n} objects, each with "name" (the language or style, two to four words) and "instruction" (one sentence asking for that implementation). No prose, no markdown fences.',
+      user: 'Topic: "{topic}". Produce {n} implementations in distinctly different languages or styles.',
+    },
+    fallback: (topic, i) => {
+      const langs = ['Python', 'JavaScript', 'Go', 'Rust', 'Ruby', 'C', 'Haskell', 'Bash', 'Lua', 'SQL', 'Zig', 'Elixir'];
+      return `Implement "${topic}" in ${langs[i % langs.length]}.`;
+    },
+    card: (r) => `<pre><code>${esc(stripFences(r.content))}</code></pre>`,
+  },
+  translate: {
+    label: 'Translation',
+    what: 'the same sentence into one language per slot',
+    defaultTopic: 'Gemma 4 is a family of models released by Google DeepMind.',
+    maxTokens: 400,
+    system: 'You are a translator. Reply with ONLY the translated text — no notes, no transliteration, no explanation, no markdown fences.',
+    plan: {
+      system: 'Reply with ONLY a JSON array of {n} objects, each with "name" (the target language) and "instruction" (an instruction to translate the given text into that language, with the text included verbatim). No prose, no markdown fences.',
+      user: 'Text to translate: "{topic}". Produce {n} entries for {n} widely different languages.',
+    },
+    fallback: (topic, i) => {
+      const langs = ['French', 'Japanese', 'Arabic', 'Hindi', 'Portuguese', 'Swahili', 'Korean', 'German', 'Turkish', 'Polish', 'Vietnamese', 'Greek'];
+      return `Translate into ${langs[i % langs.length]}: ${topic}`;
+    },
+    card: (r) => `<p class="translation">${esc(stripFences(r.content))}</p>`,
+  },
+};
+
+// The planner is a local model asked for JSON, which is a coin flip on small
+// quants. Take the first well-formed array it produces and top up from the
+// deterministic fallback rather than failing the phase over a formatting slip.
+function parseTaskPlan(content, n) {
+  const start = String(content ?? '').indexOf('[');
+  const end = String(content ?? '').lastIndexOf(']');
+  if (start === -1 || end <= start) return [];
+  let arr;
+  try { arr = JSON.parse(content.slice(start, end + 1)); } catch { return []; }
+  if (!Array.isArray(arr)) return [];
+  return arr
+    .filter((t) => t && typeof t.instruction === 'string' && t.instruction.trim())
+    .slice(0, n)
+    .map((t, i) => ({
+      name: String(t.name ?? `Task ${i + 1}`).replace(/\s+/g, ' ').trim().slice(0, 48) || `Task ${i + 1}`,
+      instruction: t.instruction.trim(),
+    }));
+}
+
+async function planTasks(def, topicText, n) {
+  let planned = [];
+  try {
+    const r = await chat({
+      messages: [
+        { role: 'system', content: def.plan.system.replaceAll('{n}', String(n)) },
+        { role: 'user', content: def.plan.user.replaceAll('{n}', String(n)).replace('{topic}', topicText) },
+      ],
+      maxTokens: 1200,
+      timeoutMs: turnTimeout,
+    });
+    planned = parseTaskPlan(r.content, n);
+  } catch {
+    // A planner that stalls or errors is not a reason to skip the gallery.
+  }
+  const tasks = planned.slice(0, n);
+  for (let i = tasks.length; i < n; i++) {
+    tasks.push({ name: `${def.label} ${i + 1}`, instruction: def.fallback(topicText, i) });
+  }
+  return { tasks, plannedCount: planned.length };
+}
+
+// ---------------------------------------------------------------------------
 // Metric dictionary — one source of truth for the short column key, the
 // human-readable name, the abbreviation people actually say out loud, and what
 // the number means. The CLI prints the keys; the report prints all of it.
@@ -465,7 +818,7 @@ const METRICS = {
   },
   ttft_ms: {
     name: 'Time to first token', abbr: 'TTFT', unit: 'ms', better: 'lower',
-    what: 'From sending the request to the first token arriving. In the prompt-processing phase max_tokens is 1, so essentially all of it is prompt-processing cost. In the generation phase the prompt is tiny, so it is the request latency floor instead.',
+    what: 'From sending the request to the first token arriving. In the prompt-processing phase max_tokens is 1, so essentially all of it is prompt-processing cost. In the generation phase the prompt is tiny, so it is the request latency floor instead. In the concurrency phase it is the median across slots, so half the callers waited longer than it says.',
   },
   prefill_tok_s: {
     name: 'Prompt read speed', cli: 'prefill_tok/s', unit: 'tok/s', better: 'higher',
@@ -511,6 +864,42 @@ const METRICS = {
     name: 'Context size', unit: 'tokens', better: null,
     what: 'Everything sent with the request, counted by the server. In the agent loop that is the entire transcript so far, which grows every turn — the reason long agent sessions get expensive regardless of speed. In the generation phase it is the preloaded context the --depth row asked for.',
   },
+  slots: {
+    name: 'Slots in flight', unit: 'requests', better: null,
+    what: 'How many requests were streaming at the same moment. The server divides its context and its compute between them, so every other number on the row is "per this many".',
+  },
+  overlap: {
+    name: 'Slots streaming at once', unit: 'mean slots', better: 'higher',
+    what: 'How many slots were actually mid-stream at the same moment, averaged over the time any of them was. Check this before reading anything else on the row: a backend that queues instead of batching reports about 1.0 here however many slots were asked for, and its aggregate throughput still creeps upward with N because one request’s prompt processing overlaps the decode of whoever is ahead in the queue. Close to the slot count means real parallelism; close to 1 means a queue wearing its costume.',
+  },
+  agg_tok_s: {
+    name: 'Aggregate write speed', cli: 'agg_tok/s', unit: 'tok/s', better: 'higher',
+    what: 'Every slot’s output tokens added up, over the wall clock of the level. Prompt processing sits inside that window, so this is total goodput — what the box actually delivers to all callers, not steady-state decode.',
+  },
+  slot_tok_s: {
+    name: 'Per-slot write speed', cli: 'slot_tok/s', unit: 'tok/s', better: 'higher',
+    what: 'Median steady-state decode rate of a single stream while the others compete with it. This is what one user feels; aggregate is what the box delivers. The two move in opposite directions as slots are added, which is the whole point of the sweep.',
+  },
+  ttft_max_ms: {
+    name: 'Worst time to first token', abbr: 'max TTFT', unit: 'ms', better: 'lower',
+    what: 'The unluckiest slot in the level. Under contention the gap between median and worst is queueing, and it is what makes a busy server feel unresponsive long before throughput actually collapses.',
+  },
+  scale: {
+    name: 'Throughput scaling', unit: '× the first level', better: 'higher',
+    what: 'Aggregate write speed relative to the smallest level in the sweep. Perfectly linear scaling would match the slot ratio exactly; it never does.',
+  },
+  eff: {
+    name: 'Scaling efficiency', unit: '% of linear', better: 'higher',
+    what: 'Throughput scaling divided by the slot ratio. 100% would mean every added slot bought a full slot of extra throughput. The widest level still at or above 70% is reported as the knee — past it, more parallelism mostly buys queueing.',
+  },
+  failed: {
+    name: 'Failed slots', unit: 'requests', better: 'lower',
+    what: 'Slots that errored or never answered inside the per-turn deadline. Non-zero here usually means the level asked for more parallel slots than the server was started with, so the surplus queued past the timeout.',
+  },
+  task: {
+    name: 'Task', unit: null, better: null,
+    what: 'The piece of work this slot was given. In gallery mode each slot gets a different one, planned by the model itself from the topic where it managed to return usable JSON.',
+  },
   action: {
     name: 'Action', unit: null, better: null,
     what: 'The tool call the turn produced, with its arguments summarised — or a note that the turn produced no call at all.',
@@ -519,6 +908,8 @@ const METRICS = {
 
 const GEN_METRICS = ['ctx_tok', 'out_tok', 'think_tok', 'ttft_ms', 'gen_tok_s', 'spread', 'peak_tok_s', 'took_s'];
 const PREFILL_METRICS = ['prompt_tok', 'ttft_ms', 'est_ppt_ms', 'prefill_tok_s', 'est_tok_s', 'spread', 'took_s'];
+const CONCURRENT_METRICS = ['slots', 'overlap', 'agg_tok_s', 'slot_tok_s', 'ttft_ms', 'ttft_max_ms', 'scale', 'eff', 'failed', 'took_s'];
+const GALLERY_METRICS = ['task', 'out_tok', 'ttft_ms', 'gen_tok_s', 'took_s'];
 
 const SUMMARY_FIELDS = {
   finished: 'Whether the model called finish, or instead ran into the turn cap or a stall. The single most important line: everything else describes a run that may not have worked.',
@@ -555,7 +946,7 @@ ${keys.map((k) => {
 </table>`;
 
 function writeRunReport(dir, run) {
-  const { prefill, generation, agentic, timings, totalS } = run;
+  const { prefill, generation, agentic, concurrent, gallery, timings, totalS } = run;
   const withEst = latencyMode !== 'none';
   const prefillCols = PREFILL_METRICS.filter((k) => withEst || (k !== 'est_ppt_ms' && k !== 'est_tok_s'));
 
@@ -608,6 +999,42 @@ ${agentic.files.length ? `<iframe src="app/index.html" title="The app the model 
 ${agentic.files.map(([p, c]) => `<details><summary>${esc(p)} <span class="hcode">${kb(c)}</span></summary><pre>${esc(c)}</pre></details>`).join('\n')}
 </section>`;
 
+  const concurrentSection = !concurrent?.rows?.length ? '' : `<section>
+<h2>Concurrency <span class="sub">how many at once</span></h2>
+<p class="lede">Every other phase sends one request at a time, which measures the model. This one fires ${concurrent.rows.map((r) => r.slots).join(', ')} identical-shaped requests at once — unique nonce each, <code>max_tokens=${concTokens}</code> — and measures the <em>server</em>. Aggregate write speed is what the box delivers to everyone; per-slot write speed is what any one caller feels. Adding slots pushes those two apart, and where they stop trading fairly is the knee.</p>
+<table>
+<tr>${CONCURRENT_METRICS.map((k) => th(k)).join('')}</tr>
+${concurrent.rows.map((r) => `<tr${r.slots === concurrent.knee ? ' class="knee"' : ''}><td>${r.slots}${r.slots === concurrent.knee ? ' ←' : ''}</td><td>${fmt(r.overlap, 1)}</td><td>${fmt(r.aggTps, 1)}</td><td>${fmt(r.slotTps, 1)}</td><td>${fmt(r.ttftMs)}</td><td>${fmt(r.ttftMaxMs)}</td><td>${r.scale == null ? '—' : `${r.scale.toFixed(2)}×`}</td><td>${r.effPct == null ? '—' : `${r.effPct.toFixed(0)}%`}</td><td>${r.failed || '—'}</td><td>${secondsAndMinutes(r.seconds)}</td></tr>`).join('\n')}
+</table>
+${concurrent.serialised ? `<p class="warn"><strong>Read this row first: the server did not run these in parallel.</strong> At ${concurrent.serialised.slots} slots only ${fmt(concurrent.serialised.overlap, 1)} were streaming at a time, so every throughput and scaling number above describes a queue rather than a batching server. Start the backend with parallel slots enabled — <code>llama-server -np N</code>, <code>OLLAMA_NUM_PARALLEL=N</code>, or vLLM's <code>--max-num-seqs</code> — and run it again.</p>` : ''}
+<p class="note">Peak aggregate throughput landed at <strong>${concurrent.best.slots} slot${concurrent.best.slots === 1 ? '' : 's'}</strong> (${fmt(concurrent.best.aggTps, 1)} tok/s), and the widest level still converting added slots into throughput at 70% of linear or better was <strong>${concurrent.knee} slot${concurrent.knee === 1 ? '' : 's'}</strong>. Two caveats worth holding onto: the server has to have been <em>started</em> with at least this many parallel slots — <code>llama-server -np N</code>, or the equivalent — or the surplus requests simply queue and the row measures the queue rather than the hardware; and each slot gets its share of the context, so a deep sweep on a fixed context budget shortens every slot's window.</p>
+${glossary(CONCURRENT_METRICS)}
+</section>`;
+
+  const gallerySection = !gallery?.tasks?.length ? '' : `<section>
+<h2>${esc(gallery.def.label)} gallery <span class="sub">${esc(gallery.slots)} slots, ${gallery.tasks.length} different tasks</span></h2>
+<p class="lede">The same concurrency, pointed at ${esc(gallery.def.what)} instead of ${gallery.tasks.length} copies of one prompt. Topic: <strong>${esc(gallery.topic)}</strong>. ${gallery.plannedCount === gallery.tasks.length
+  ? 'The model planned every task itself from that topic.'
+  : gallery.plannedCount
+    ? `The model planned ${gallery.plannedCount} of the ${gallery.tasks.length} tasks; the rest fell back to generated ones because the planner's JSON was not usable.`
+    : 'The planner did not return usable JSON, so all tasks are the generated fallbacks — worth noting as a result in itself about this model.'} Aggregate throughput across the whole gallery was <strong>${fmt(gallery.aggTps, 1)} tok/s</strong> over ${secondsAndMinutes(gallery.seconds)}, with <strong>${fmt(gallery.overlap, 1)} of ${gallery.slots}</strong> slots streaming at a time on average${gallery.slots > 1 && gallery.overlap != null && gallery.overlap < 1.5 ? ' — which means the server ran them one after another rather than in parallel' : ''}.</p>
+<div class="cards">
+${gallery.tasks.map((r) => `<figure class="card">
+${r.error ? `<p class="note">failed — ${esc(r.error)}</p>` : gallery.def.card(r)}
+<figcaption><strong>${esc(r.name)}</strong><span class="hcode">${r.outTokens || 0} tok · ${r.genTps == null ? '—' : `${fmt(r.genTps, 1)} tok/s`} · ${r.seconds == null ? '—' : `${r.seconds.toFixed(1)}s`}</span></figcaption>
+</figure>`).join('\n')}
+</div>
+<h3>Per task</h3>
+<table>
+<tr>${GALLERY_METRICS.map((k, i) => th(k, i === 0 ? 'left' : 'right')).join('')}</tr>
+${gallery.tasks.map((r) => `<tr><td class="left">${esc(r.name)}</td><td>${r.outTokens || '—'}</td><td>${r.ttftMs == null ? '—' : fmt(r.ttftMs)}</td><td>${r.genTps == null ? '—' : fmt(r.genTps, 1)}</td><td>${r.seconds == null ? '—' : secondsAndMinutes(r.seconds)}</td></tr>`).join('\n')}
+</table>
+<details><summary>The instructions each slot was given</summary><table class="gloss">
+${gallery.tasks.map((r) => `<tr><th>${esc(r.name)}</th><td class="left">${esc(r.instruction)}</td></tr>`).join('\n')}
+</table></details>
+${glossary(GALLERY_METRICS)}
+</section>`;
+
   writeFileSync(join(dir, 'report.html'), `<!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -641,6 +1068,16 @@ ${agentic.files.map(([p, c]) => `<details><summary>${esc(p)} <span class="hcode"
   iframe { width: 100%; height: 34rem; border: 1px solid var(--line); border-radius: .5rem; background: #fff; margin-bottom: 1rem }
   details { border-bottom: 1px solid var(--line) }
   summary { cursor: pointer; padding: .5rem 0 }
+  .knee td, .knee th { font-weight: 700; background: var(--soft) }
+  .warn { max-width: 62ch; border-left: 3px solid currentColor; padding: .5rem 0 .5rem .9rem; margin: 1rem 0 }
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); gap: 1rem; margin: 0 0 1rem }
+  .card { margin: 0; border: 1px solid var(--line); border-radius: .5rem; padding: .75rem; overflow: hidden }
+  .card figcaption { margin-top: .5rem; font-size: .85em }
+  .card pre { margin: 0; max-height: 18rem }
+  .art { background: #fff; border-radius: .35rem; display: grid; place-items: center; padding: .5rem }
+  .art svg { width: 100%; height: auto; max-height: 12rem }
+  .ascii { font-size: .7em; line-height: 1.15; white-space: pre }
+  .translation { margin: 0; font-size: 1.05em }
   .wrap { overflow-x: auto }
 </style>
 
@@ -653,7 +1090,9 @@ ${esc(target)} · ${esc(base)}${reasoning ? ` · reasoning_effort=${esc(reasonin
 ${phaseTimes}
 ${prefillSection}
 ${genSection}
+${concurrentSection}
 ${agenticSection}
+${gallerySection}
 `);
 }
 
@@ -663,7 +1102,7 @@ ${agenticSection}
 
 const runStarted = performance.now();
 const timings = [];
-const run = { prefill: null, generation: null, agentic: null };
+const run = { prefill: null, generation: null, agentic: null, concurrent: null, gallery: null };
 
 // Warmup: loads/JITs the model so the first real run is not measuring startup.
 process.stdout.write('warmup... ');
@@ -794,6 +1233,179 @@ if (phases.includes('generation')) {
   console.log(`  total ${secondsAndMinutes(secs)} for ${depths.length} depth${depths.length === 1 ? '' : 's'} × ${runs} run${runs === 1 ? '' : 's'}`);
 }
 
+if (phases.includes('concurrent')) {
+  const t0 = performance.now();
+  const def = SCENARIO_DEFS[scenario] ?? null;
+  // windows accumulates across every request the slot serves, so the gallery's
+  // pool measures overlap over the whole level rather than one task at a time.
+  const newSlot = (id, budget) => ({ id, state: 'queued', tokens: 0, ttftMs: null, tps: null, elapsedMs: 0, budget, task: '', error: null, windows: [] });
+
+  if (!def) {
+    // Sweep mode. Every level sends the same request shape as the generation
+    // phase, so a single-slot row here and a depth-0 row there are directly
+    // comparable — the only variable across levels is how many are in flight.
+    console.log(`\nCONCURRENCY  — ${concurrency.join(', ')} request${concurrency.length === 1 && concurrency[0] === 1 ? '' : 's'} in flight, max_tokens=${concTokens} each`);
+    const table = cols([
+      ['slots', 7], ['overlap', 9], ['agg_tok/s', 12], ['slot_tok/s', 13], ['ttft_ms', 10],
+      ['max_ttft_ms', 14], ['scale', 8], ['eff', 7], ['failed', 8], ['took_s (took_min)', 28],
+    ]);
+    console.log(table.header);
+    const rows = [];
+    let baseline = null;
+
+    for (const n of concurrency) {
+      const slots = Array.from({ length: n }, (_, i) => newSlot(i + 1, concTokens));
+      const dash = createDashboard(slots, { title: `${n} request${n === 1 ? '' : 's'} in flight, ${concTokens} max_tokens each` });
+      dash.start();
+      const s0 = performance.now();
+      let rs;
+      try {
+        // .map runs to the first await synchronously, so every fetch is issued
+        // in the same tick. Staggering them would measure a ramp, not a load.
+        rs = await Promise.all(slots.map((slot) => {
+          const tag = `c${n}-${nonce++}`;
+          const ask = `${buildPrompt(64, tag)} Write a long detailed essay about distributed systems.`;
+          return runSlot(slot, [{ role: 'user', content: ask }], concTokens);
+        }));
+      } finally {
+        dash.stop();
+      }
+      const seconds = (performance.now() - s0) / 1000;
+      for (const slot of slots) if (slot.error) dash.note(`slot ${slot.id} failed — ${slot.error}`);
+
+      const ok = rs.filter(Boolean);
+      const outTotal = sum(ok.map((r) => r.outTokens));
+      // Wall clock, not the sum of per-request times: the level is over when the
+      // last slot is, and everything in between overlapped.
+      const aggTps = seconds > 0 && ok.length ? outTotal / seconds : null;
+      baseline ??= aggTps == null ? null : { n, aggTps };
+      const scale = baseline?.aggTps ? aggTps / baseline.aggTps : null;
+      const r = {
+        phase: 'concurrent', slots: n, aggTps, outTotal,
+        overlap: meanConcurrency(slots.flatMap((s) => s.windows)),
+        slotTps: median(ok.map((x) => x.genTps)),
+        ttftMs: median(ok.map((x) => x.ttftMs)),
+        ttftMaxMs: ok.length ? Math.max(...ok.map((x) => x.ttftMs)) : null,
+        scale,
+        effPct: scale == null ? null : (scale / (n / baseline.n)) * 100,
+        failed: n - ok.length,
+        seconds,
+      };
+      rows.push(r);
+      results.push({ ...r, raw: ok });
+      console.log(table.row([
+        n, fmt(r.overlap, 1), fmt(r.aggTps, 1), fmt(r.slotTps, 1), fmt(r.ttftMs), fmt(r.ttftMaxMs),
+        r.scale == null ? '—' : `${r.scale.toFixed(2)}x`,
+        r.effPct == null ? '—' : `${r.effPct.toFixed(0)}%`,
+        r.failed || '—', secondsAndMinutes(r.seconds),
+      ]));
+    }
+
+    // The knee is the widest level still turning added slots into throughput at
+    // better than 70% of linear. Past it, more parallelism mostly buys queueing.
+    const knee = ([...rows].reverse().find((r) => r.effPct != null && r.effPct >= 70) ?? rows[0]).slots;
+    const best = rows.reduce((a, b) => ((b.aggTps ?? 0) > (a.aggTps ?? 0) ? b : a), rows[0]);
+    const widestRow = rows[rows.length - 1];
+    run.concurrent = {
+      rows, knee, best: { slots: best.slots, aggTps: best.aggTps },
+      serialised: widestRow.slots > 1 && widestRow.overlap != null && widestRow.overlap < 1.5 ? widestRow : null,
+    };
+    console.log(`  peak aggregate throughput at ${best.slots} slot${best.slots === 1 ? '' : 's'} (${fmt(best.aggTps, 1)} tok/s); knee at ${knee} slot${knee === 1 ? '' : 's'}`);
+    console.log('  agg_tok/s is what the box delivers to everyone, slot_tok/s what one caller feels — they diverge as slots are added');
+    console.log('  agg_tok/s counts prompt processing inside its window and slot_tok/s does not, so the one-slot row reads lower on the left');
+    // The check that makes the whole phase trustworthy. Reading a scaling curve
+    // off a server that never batched anything is the headline mistake here.
+    const widest = rows[rows.length - 1];
+    if (widest.slots > 1 && widest.overlap != null && widest.overlap < 1.5) {
+      console.log(`  WARNING: at ${widest.slots} slots only ${fmt(widest.overlap, 1)} were streaming at a time — the server ran these essentially one after another.`);
+      console.log('           Every number above is a queue, not parallelism. Start the backend with parallel slots enabled:');
+      console.log('           llama.cpp: llama-server -np N · Ollama: OLLAMA_NUM_PARALLEL=N · vLLM: --max-num-seqs');
+    } else if (widest.slots > 1 && widest.overlap != null && widest.overlap < widest.slots * 0.6) {
+      console.log(`  note: asked for ${widest.slots} slots but only ${fmt(widest.overlap, 1)} streamed at a time on average — the backend is capping parallelism below the level you swept to`);
+    }
+    if (rows.some((r) => r.failed)) console.log('  note: slots failed. The server must be started with at least this many parallel slots (llama-server -np N) or the surplus just queues');
+  } else {
+    // Gallery mode. Distinct work per slot instead of N copies of one prompt —
+    // the cookbook demo's shape. Throughput is still measured, but the output is
+    // the point, so it is kept and rendered into the report.
+    const topicText = topic ?? def.defaultTopic;
+    const workers = Math.min(slotCount, taskCount);
+    console.log(`\nCONCURRENCY  — ${scenario} gallery: ${taskCount} task${taskCount === 1 ? '' : 's'} across ${workers} slot${workers === 1 ? '' : 's'}, max_tokens=${def.maxTokens} each`);
+    console.log(`  topic    ${topicText}`);
+    process.stdout.write('  planning... ');
+    const { tasks, plannedCount } = await planTasks(def, topicText, taskCount);
+    console.log(plannedCount >= taskCount
+      ? `${tasks.length} task${tasks.length === 1 ? '' : 's'}, all planned by the model`
+      : `${tasks.length} task${tasks.length === 1 ? '' : 's'} (${plannedCount} planned, ${tasks.length - plannedCount} generated — the planner returned no usable JSON for those)`);
+
+    const slots = Array.from({ length: workers }, (_, i) => newSlot(i + 1, def.maxTokens));
+    const outcomes = new Array(tasks.length);
+    const dash = createDashboard(slots, { title: `${workers} slot${workers === 1 ? '' : 's'} working through ${tasks.length} ${def.label} task${tasks.length === 1 ? '' : 's'}`, showTask: true });
+    dash.start();
+    const s0 = performance.now();
+    // Shared cursor over one queue: more tasks than slots is the normal case, and
+    // a pool keeps every slot busy instead of waiting on the slowest batch.
+    let cursor = 0;
+    const worker = async (slot) => {
+      for (;;) {
+        const index = cursor++;
+        const task = tasks[index];
+        if (!task) {
+          slot.state = 'idle';
+          slot.task = '';
+          return;
+        }
+        slot.task = task.name;
+        const r = await runSlot(slot, [
+          { role: 'system', content: def.system },
+          { role: 'user', content: task.instruction },
+        ], def.maxTokens);
+        outcomes[index] = {
+          ...task,
+          content: r?.content ?? '',
+          outTokens: r?.outTokens ?? 0,
+          genTps: r?.genTps ?? null,
+          ttftMs: r?.ttftMs ?? null,
+          seconds: r ? r.totalMs / 1000 : null,
+          error: slot.error,
+        };
+      }
+    };
+    try {
+      await Promise.all(slots.map(worker));
+    } finally {
+      dash.stop();
+    }
+    const seconds = (performance.now() - s0) / 1000;
+    const outTotal = sum(outcomes.map((r) => r?.outTokens));
+    const aggTps = seconds > 0 ? outTotal / seconds : null;
+    const overlap = meanConcurrency(slots.flatMap((s) => s.windows));
+
+    const table = cols([['out_tok', 10], ['ttft_ms', 10], ['out_tok/s', 12], ['took_s (took_min)', 28]]);
+    console.log(`${table.header}   task`);
+    for (const r of outcomes) {
+      console.log(`${table.row([
+        r.outTokens || '—',
+        r.ttftMs == null ? '—' : fmt(r.ttftMs),
+        r.genTps == null ? '—' : fmt(r.genTps, 1),
+        r.seconds == null ? '—' : secondsAndMinutes(r.seconds),
+      ])}   ${r.error ? `FAILED — ${r.error}` : r.name}`);
+    }
+    const failed = outcomes.filter((r) => r.error).length;
+    run.gallery = { def, scenario, topic: topicText, slots: workers, tasks: outcomes, plannedCount, aggTps, overlap, seconds, failed };
+    results.push({
+      phase: 'concurrent', mode: 'gallery', scenario, topic: topicText, slots: workers,
+      plannedCount, aggTps, overlap, outTotal, seconds, failed,
+      tasks: outcomes.map(({ content, ...rest }) => ({ ...rest, chars: content.length })),
+    });
+    console.log(`  ${outcomes.length - failed}/${outcomes.length} produced output · ${outTotal} tok · ${fmt(aggTps, 1)} agg tok/s over ${secondsAndMinutes(seconds)}`);
+    console.log(`  ${fmt(overlap, 1)} of ${workers} slot${workers === 1 ? '' : 's'} were streaming at a time on average${workers > 1 && overlap != null && overlap < 1.5 ? ' — the server ran these one after another, not in parallel' : ''}`);
+    console.log('  the gallery itself is in the report — this table is only how fast it got there');
+  }
+
+  timings.push({ label: def ? `Concurrency (${scenario} gallery)` : 'Concurrency', seconds: (performance.now() - t0) / 1000 });
+}
+
 if (phases.includes('agentic')) {
   console.log(`\nAGENTIC CODING  — plan → write files → finish, max ${maxTurns} turns, ${turnTokens} max_tokens/turn`);
   console.log('  turn    ctx_tok    first_tok_ms    out_tok    think_tok    out_tok/s              took_s (took_min)   action');
@@ -917,4 +1529,4 @@ console.log(`  ${'Whole run'.padEnd(tw)}${secondsAndMinutes(totalS)}`);
 console.log(`\nreport   ${join(runDir, 'report.html')}`);
 if (vfs.has('index.html')) console.log(`app      ${join(appDir, 'index.html')}`);
 
-if (args.json) console.log('\n' + JSON.stringify({ target, base, model, runs, depths, latencyMode, latencyMs, totalS, timings, results }, null, 2));
+if (args.json) console.log('\n' + JSON.stringify({ target, base, model, runs, depths, concurrency, concTokens, scenario, latencyMode, latencyMs, totalS, timings, results }, null, 2));

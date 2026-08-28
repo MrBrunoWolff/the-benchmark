@@ -1,7 +1,7 @@
 {
   "name": "the-benchmark",
   "version": "0.2.0",
-  "description": "Minimal zero-dependency benchmark for local LLM servers (LM Studio, Ollama, llama.cpp, vLLM): prefill, generation, and a real agentic tool-calling loop.",
+  "description": "Minimal zero-dependency benchmark for local LLM servers (LM Studio, Ollama, llama.cpp, vLLM): prefill, generation, a live concurrency sweep, and a real agentic tool-calling loop.",
   "license": "MIT",
   "type": "module",
   "bin": {
@@ -31,12 +31,15 @@
     "llama.cpp",
     "vllm",
     "tokens-per-second",
+    "concurrency",
     "agentic"
   ],
   "scripts": {
     "bench": "node bench.mjs",
+    "concurrent": "node bench.mjs --phases concurrent",
+    "gallery": "node bench.mjs --phases concurrent --scenario svg --concurrency 9",
     "agentic": "node bench.mjs --phases agentic",
-    "all": "node bench.mjs --phases prefill,generation,agentic",
+    "all": "node bench.mjs --phases prefill,generation,concurrent,agentic",
     "test": "bun test",
     "build:binaries": "bun scripts/build-binaries.ts"
   },

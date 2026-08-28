@@ -12,7 +12,7 @@
  * into a file whose whole contract is Node compatibility.
  */
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { mkdtempSync, readdirSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -26,6 +26,13 @@ let server: ReturnType<typeof Bun.serve>;
 let base: string;
 /** Bodies the CLI posted, so tests can assert on what it actually asked for. */
 let requests: Array<Record<string, unknown>> = [];
+/**
+ * How many completions were streaming at the same moment. The concurrency phase
+ * makes a claim the other phases do not — that its requests genuinely overlap —
+ * and a mock that answers instantly would let a sequential loop pass as parallel.
+ */
+let inflight = 0;
+let maxInflight = 0;
 
 beforeAll(() => {
   server = Bun.serve({
@@ -50,23 +57,41 @@ beforeAll(() => {
       }
 
       if (pathname === "/v1/chat/completions") {
-        requests.push((await req.json()) as Record<string, unknown>);
+        const body = (await req.json()) as Record<string, unknown>;
+        requests.push(body);
+        const system = String(
+          (body.messages as Array<{ role: string; content: string }> | undefined)?.[0]?.content ?? "",
+        );
+        // The gallery planner asks for JSON and the SVG scenario asks for an svg
+        // element; both paths are only exercised if the mock plays along.
+        const words = /JSON array/i.test(system)
+          ? [JSON.stringify([{ name: "Planned one", instruction: "draw one" }, { name: "Planned two", instruction: "draw two" }])]
+          : /SVG artist/i.test(system)
+            ? ['<svg viewBox="0 0 200 200"><script>alert(1)</script><rect onclick="x()" width="200" height="200" fill="#48f"/></svg>']
+            : ["Hello", " from", " the", " mock"];
+        inflight++;
+        maxInflight = Math.max(maxInflight, inflight);
+        // Long enough that overlapping requests actually overlap, short enough
+        // that the phases which fire dozens of them stay fast.
+        await Bun.sleep(40);
         const stream = new ReadableStream({
-          start(controller) {
+          async start(controller) {
             const send = (s: string) => controller.enqueue(new TextEncoder().encode(s));
             // A thinking delta first: it must start the TTFT clock too.
             send(sse({ choices: [{ delta: { reasoning_content: "hmm" } }] }));
-            for (const word of ["Hello", " from", " the", " mock"]) {
+            for (const word of words) {
               send(sse({ choices: [{ delta: { content: word } }] }));
+              await Bun.sleep(5);
             }
             send(sse({ choices: [{ delta: {}, finish_reason: "stop" }] }));
             send(
               sse({
                 choices: [],
-                usage: { prompt_tokens: 256, completion_tokens: 4, total_tokens: 260 },
+                usage: { prompt_tokens: 256, completion_tokens: words.length, total_tokens: 256 + words.length },
               }),
             );
             send("data: [DONE]\n\n");
+            inflight--;
             controller.close();
           },
         });
@@ -207,5 +232,185 @@ describe.each(RUNTIMES)("under %s", (runtime) => {
     const parsed = JSON.parse(stdout.slice(start));
     expect(parsed.base).toBe(base);
     expect(Array.isArray(parsed.results)).toBe(true);
+  }, 60_000);
+
+  test("names the concurrent phase among the valid ones", async () => {
+    const { stderr } = await runBench(runtime, ["--phases", "nonsense"]);
+    expect(stderr).toContain("concurrent");
+  }, 30_000);
+
+  test("rejects an unknown --scenario before doing any work", async () => {
+    const { stderr, exitCode } = await runBench(runtime, [
+      "--phases", "concurrent",
+      "--scenario", "nonsense",
+    ]);
+    expect(exitCode).toBe(1);
+    expect(stderr).toContain('unknown --scenario "nonsense"');
+    expect(stderr).toContain("svg");
+  }, 30_000);
+
+  test("sweeps concurrency levels and reports aggregate against per-slot speed", async () => {
+    const { stdout, exitCode } = await runBench(runtime, [
+      "--phases", "concurrent",
+      "--concurrency", "1,4",
+      "--conc-tokens", "16",
+    ]);
+    expect(exitCode, stdout).toBe(0);
+    // Both throughput columns have to be present: one of them alone is the
+    // misreading this phase exists to prevent.
+    expect(stdout).toContain("agg_tok/s");
+    expect(stdout).toContain("slot_tok/s");
+    // The sweep is only a sweep if every level actually ran.
+    expect(stdout).toMatch(/^\s+1\s/m);
+    expect(stdout).toMatch(/^\s+4\s/m);
+    expect(stdout).toMatch(/knee at \d+ slots?/);
+  }, 60_000);
+
+  test("actually puts requests in flight together rather than looping", async () => {
+    maxInflight = 0;
+    inflight = 0;
+    const { exitCode, stdout } = await runBench(runtime, [
+      "--phases", "concurrent",
+      "--concurrency", "4",
+      "--conc-tokens", "16",
+      // The latency floor and warmup are deliberately serial; leaving the floor
+      // out keeps this assertion about the phase and nothing else.
+      "--latency-mode", "none",
+    ]);
+    expect(exitCode, stdout).toBe(0);
+    expect(maxInflight).toBe(4);
+  }, 60_000);
+
+  test("runs a gallery scenario and renders what each slot produced", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "bench-gallery-"));
+    try {
+      const { stdout, exitCode } = await runBench(
+        runtime,
+        ["--phases", "concurrent", "--scenario", "svg", "--concurrency", "2", "--tasks", "3", "--topic", "robots"],
+        dir,
+      );
+      expect(exitCode, stdout).toBe(0);
+      // Two of the three tasks come from the planner's JSON, the third from the
+      // deterministic fallback — the report has to say so rather than imply the
+      // model planned everything.
+      expect(stdout).toContain("2 planned");
+      const runs = readdirSync(dir).filter((n) => n.startsWith("run-"));
+      const html = readFileSync(join(dir, runs[0]!, "report.html"), "utf8");
+      expect(html).toContain("SVG gallery");
+      expect(html).toContain("Planned one");
+      expect(html).toContain("<svg");
+      // Model output is embedded verbatim into a file the user opens in a
+      // browser, so the two things that make an SVG executable must be gone.
+      expect(html).not.toContain("<script>alert");
+      expect(html).not.toContain("onclick");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }, 60_000);
+
+  test("reports how many slots were really streaming at once", async () => {
+    // Its own server rather than the shared mock: that one answers in about 20ms,
+    // and over a window that short the scheduler's jitter is most of the
+    // measurement. Overlap is a claim about wall-clock alignment, so it needs a
+    // decode window long enough for alignment to mean something.
+    const batching = Bun.serve({
+      port: 0,
+      async fetch(req) {
+        const { pathname } = new URL(req.url);
+        if (pathname === "/v1/models") return Response.json({ data: [{ id: "batching-model" }] });
+        if (pathname !== "/v1/chat/completions") return new Response("not found", { status: 404 });
+        await req.json();
+        const stream = new ReadableStream({
+          async start(controller) {
+            const send = (s: string) => controller.enqueue(new TextEncoder().encode(s));
+            for (let i = 0; i < 12; i++) {
+              send(sse({ choices: [{ delta: { content: `tok${i} ` } }] }));
+              await Bun.sleep(20);
+            }
+            send(sse({ choices: [{ delta: {}, finish_reason: "stop" }] }));
+            send(sse({ choices: [], usage: { prompt_tokens: 8, completion_tokens: 12 } }));
+            send("data: [DONE]\n\n");
+            controller.close();
+          },
+        });
+        return new Response(stream, { headers: { "content-type": "text/event-stream" } });
+      },
+    });
+    try {
+      const dir = mkdtempSync(join(tmpdir(), "bench-overlap-"));
+      const proc = Bun.spawn(
+        [runtime, BENCH, "--url", `http://localhost:${batching.port}`, "--out", dir,
+          "--phases", "concurrent", "--concurrency", "4", "--conc-tokens", "16",
+          "--latency-mode", "none", "--json"],
+        { stdout: "pipe", stderr: "pipe", stdin: "ignore" },
+      );
+      const [stdout, exitCode] = await Promise.all([new Response(proc.stdout).text(), proc.exited]);
+      expect(exitCode, stdout).toBe(0);
+      expect(stdout).toContain("overlap");
+      const parsed = JSON.parse(stdout.slice(stdout.lastIndexOf("\n{")));
+      const level = parsed.results.find((r: { phase: string }) => r.phase === "concurrent");
+      // Four asked for, four streaming: the tail where slots finish at slightly
+      // different moments is the only thing keeping this under 4.
+      expect(level.overlap).toBeGreaterThan(3);
+      // And the serialisation warning must stay quiet on a server that batches.
+      expect(stdout).not.toContain("WARNING");
+      rmSync(dir, { recursive: true, force: true });
+    } finally {
+      batching.stop(true);
+    }
+  }, 60_000);
+
+  test("warns when the server serialised the requests instead of batching them", async () => {
+    // A server that only ever streams one response at a time is what an
+    // unconfigured llama-server or Ollama looks like, and its aggregate tok/s
+    // still rises with slot count — so the warning, not the throughput curve, is
+    // what has to catch it.
+    let chain: Promise<void> = Promise.resolve();
+    const queueing = Bun.serve({
+      port: 0,
+      async fetch(req) {
+        const { pathname } = new URL(req.url);
+        if (pathname === "/v1/models") return Response.json({ data: [{ id: "serial-model" }] });
+        if (pathname !== "/v1/chat/completions") return new Response("not found", { status: 404 });
+        await req.json();
+        const mine = chain.then(() => {});
+        chain = chain.then(() => Bun.sleep(120));
+        await mine;
+        const stream = new ReadableStream({
+          async start(controller) {
+            const send = (s: string) => controller.enqueue(new TextEncoder().encode(s));
+            for (const word of ["one", " at", " a", " time"]) {
+              send(sse({ choices: [{ delta: { content: word } }] }));
+              await Bun.sleep(25);
+            }
+            send(sse({ choices: [{ delta: {}, finish_reason: "stop" }] }));
+            send(sse({ choices: [], usage: { prompt_tokens: 8, completion_tokens: 4 } }));
+            send("data: [DONE]\n\n");
+            controller.close();
+          },
+        });
+        return new Response(stream, { headers: { "content-type": "text/event-stream" } });
+      },
+    });
+    try {
+      const dir = mkdtempSync(join(tmpdir(), "bench-serial-"));
+      const proc = Bun.spawn(
+        [runtime, BENCH, "--url", `http://localhost:${queueing.port}`, "--out", dir,
+          "--phases", "concurrent", "--concurrency", "4", "--conc-tokens", "16", "--latency-mode", "none"],
+        { stdout: "pipe", stderr: "pipe", stdin: "ignore" },
+      );
+      const [stdout, exitCode] = await Promise.all([new Response(proc.stdout).text(), proc.exited]);
+      expect(exitCode, stdout).toBe(0);
+      expect(stdout).toContain("WARNING");
+      expect(stdout).toMatch(/one after another/);
+      // And it has to name the fix, not just the symptom.
+      expect(stdout).toContain("OLLAMA_NUM_PARALLEL");
+      const runs = readdirSync(dir).filter((n) => n.startsWith("run-"));
+      const html = readFileSync(join(dir, runs[0]!, "report.html"), "utf8");
+      expect(html).toContain("did not run these in parallel");
+      rmSync(dir, { recursive: true, force: true });
+    } finally {
+      queueing.stop(true);
+    }
   }, 60_000);
 });
