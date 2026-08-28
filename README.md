@@ -21,17 +21,35 @@ npx -y the-benchmark                                              # same, via np
 Published as [`the-benchmark`](https://www.npmjs.com/package/the-benchmark) — 4
 files, no dependencies, Node 18+.
 
-If you keep a supply-chain delay on npm installs, a freshly published version is
-refused until it ages out:
+If you keep a supply-chain delay on npm installs, a freshly published version will
+not be used until it ages out — and **how that shows up depends on whether you pin
+the version**, which is worth knowing because one of the two forms is silent.
+
+Pin it and the refusal is loud:
 
 ```
-error: Package "the-benchmark" ... blocked by minimum-release-age: 259200 seconds
+$ bunx the-benchmark@0.3.0
+error: No version matching "the-benchmark" found for specifier "0.3.0"
+       (blocked by minimum-release-age: 259200 seconds)
 ```
 
-That is your own guard doing its job, not a broken package — bun reads
+Leave it unpinned and bun quietly resolves to the newest release that *has* aged
+out — an older version — with no warning at all:
+
+```
+$ bunx the-benchmark --phases concurrent
+unknown phase "concurrent"; expected one or more of: prefill, generation, agentic
+```
+
+That error is the giveaway: it lists the phases of the *old* version. A flag that
+the README documents and the CLI rejects almost always means you are running an
+older build than you think, not that the feature is missing. Check with
+`bunx the-benchmark@<version>`, which fails loudly rather than downgrading.
+
+Either way it is your own guard doing its job, not a broken package — bun reads
 `minimumReleaseAge` from `~/.bunfig.toml`, and neither `--minimum-release-age=0` nor
-a local `bunfig.toml` overrides it for `bunx`. Wait it out, or use the file form,
-which needs nothing but Node:
+a local `bunfig.toml` overrides it for `bunx`. Wait it out, use `npx` (which does
+not read bunfig), or use the file form, which needs nothing but Node:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/MrBrunoWolff/the-benchmark/main/bench.mjs -o bench.mjs
