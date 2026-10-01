@@ -17,6 +17,7 @@ beforeAll(() => {
     requests.push({ path, body, auth: req.headers.get('authorization') });
     if (mode === 'unauthorized' && path === '/v1/systemone') return new Response(KEY, { status: 401 });
     if (mode === 'timeout') { await Bun.sleep(100); return Response.json({}); }
+    const clef = path.includes('/ai/run/');
     const local = path === '/v1/chat/completions';
     const input = local ? JSON.parse(body.messages[1].content) : body;
     const text = input.state;
@@ -28,6 +29,7 @@ beforeAll(() => {
     if (mode === 'partial') delete answers.refund;
     if (mode === 'invalid') { answers.impact = { type: 'score', score: 99 }; answers.refund = { type: 'noul', noul: '1' }; }
     if (mode === 'echo') answers.extra = KEY;
+    if (clef) return Response.json({ success: true, result: { model: body.model, answers, usage: { input_tokens: 80, output_tokens: 0 } } });
     return Response.json(local ? {
       model: 'local-resolved', choices: [{ message: { content: mode === 'malformed' ? 'not JSON' : JSON.stringify({ answers }) } }],
       usage: { prompt_tokens: 100, completion_tokens: 25 },
@@ -41,7 +43,7 @@ async function run(runtime: string, args: string[] = [], key = KEY, file = false
   const dir = mkdtempSync(join(tmpdir(), 'system-one-'));
   if (file) writeFileSync(join(dir, '.env.local'), `# local secret\nTYPESAFE_API_KEY="${KEY}"\n`);
   const proc = Bun.spawn([runtime, BENCH, '--phases', 'system-one', '--url', base, '--model', 'mock-local', '--jev-url', base, '--runs', '1', '--out', join(dir, 'out'), '--json', ...args], {
-    cwd: dir, env: { ...process.env, TYPESAFE_API_KEY: key }, stdin: 'ignore', stdout: 'pipe', stderr: 'pipe',
+    cwd: dir, env: { ...process.env, TYPESAFE_API_KEY: key, CLOUDFLARE_API_TOKEN: KEY, CLOUDFLARE_ACCOUNT_ID: 'a'.repeat(32) }, stdin: 'ignore', stdout: 'pipe', stderr: 'pipe',
   });
   const [stdout, stderr, code] = await Promise.all([new Response(proc.stdout).text(), new Response(proc.stderr).text(), proc.exited]);
   let result: any, html = '';
@@ -72,6 +74,19 @@ describe.each(['bun', 'node'])('System One under %s', (runtime) => {
     expect(r.result.summaries.every((s: any) => s.accuracyPct === 100 && s.failed === 0 && s.scoreMae === 0 && s.noulBrier === 0)).toBe(true);
     expect(r.result.samples[0].inputTokens).toBe(100);
     expect(r.html).toContain('System One');
+    expect(r.stdout + r.html + JSON.stringify(r.result)).not.toContain(KEY);
+  });
+
+  test('Clef and Clef-flash use the native schema, Cloudflare envelope, and separate report models', async () => {
+    mode = 'good'; requests = [];
+    const r = await run(runtime, ['--system-one-providers', 'jev,clef,clef-flash', '--clef-url', base]);
+    expect(r.code, r.stderr).toBe(0);
+    expect(requests).toHaveLength(12);
+    const clef = requests.filter((request) => request.path.includes('/ai/run/'));
+    expect(clef).toHaveLength(8);
+    expect(clef.every((request) => request.auth === `Bearer ${KEY}` && ['clef', 'clef-flash'].includes(request.body.model))).toBe(true);
+    expect(r.result.summaries.map((summary: any) => summary.model)).toEqual(['jev-latest', 'clef', 'clef-flash']);
+    expect(r.result.summaries.every((summary: any) => summary.accuracyPct === 100 && summary.failed === 0)).toBe(true);
     expect(r.stdout + r.html + JSON.stringify(r.result)).not.toContain(KEY);
   });
 

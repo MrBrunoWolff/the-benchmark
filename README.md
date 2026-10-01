@@ -1425,3 +1425,22 @@ MTP-enabled A/B says otherwise.
 ## License
 
 MIT — see [LICENSE](LICENSE).
+
+## Clef decision models
+
+Compare providers using the same states and questions:
+
+```sh
+CLOUDFLARE_ACCOUNT_ID=your-account-id CLOUDFLARE_API_TOKEN=your-token \
+  node bench.mjs --phases system-one --system-one-providers jev,clef,clef-flash
+```
+
+Keep credentials in your environment or `.env.local` (also supports `--env-file`).
+The Jev comparison still requires `TYPESAFE_API_KEY`. Use `--system-one-providers clef,clef-flash`
+for Cloudflare only. `--clef-url` overrides the REST origin for compatible servers/mocks;
+it requires HTTPS except on loopback. Existing defaults and Jev options are unchanged.
+
+Clef accepts the existing Jev `state`/`questions` schema and returns the same typed
+answers. REST responses are unwrapped from Cloudflare’s `result` envelope.
+See [Clef docs](https://developers.cloudflare.com/workers-ai/models/clef/) and
+[Clef-flash docs](https://developers.cloudflare.com/workers-ai/models/clef-flash/).
