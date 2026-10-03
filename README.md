@@ -3,6 +3,9 @@
 Minimal local-LLM server benchmark. One code path, zero dependencies — only the
 base URL changes between backends.
 
+[![npm](https://img.shields.io/npm/v/the-benchmark?style=flat-square)](https://www.npmjs.com/package/the-benchmark)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green?style=flat-square)](LICENSE)
+
 Works against any OpenAI-compatible `/v1/chat/completions` endpoint: LM Studio,
 Ollama, llama.cpp server, vLLM.
 
