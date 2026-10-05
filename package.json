@@ -2,8 +2,26 @@
   "name": "the-benchmark",
   "version": "0.3.1",
   "description": "Minimal zero-dependency benchmark for local LLM servers (LM Studio, Ollama, llama.cpp, vLLM): prefill, generation, a live concurrency sweep, and a real agentic tool-calling loop.",
+  "keywords": [
+    "agentic",
+    "benchmark",
+    "concurrency",
+    "llama.cpp",
+    "llm",
+    "lmstudio",
+    "ollama",
+    "tokens-per-second",
+    "vllm"
+  ],
+  "bugs": {
+    "url": "https://github.com/MrBrunoWolff/the-benchmark/issues"
+  },
   "license": "MIT",
-  "type": "module",
+  "author": "Bruno Wolff",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MrBrunoWolff/the-benchmark.git"
+  },
   "bin": {
     "the-benchmark": "bench.mjs"
   },
@@ -12,28 +30,10 @@
     "README.md",
     "LICENSE"
   ],
-  "engines": {
-    "node": ">=18",
-    "bun": ">=1.4.0"
-  },
+  "type": "module",
   "publishConfig": {
     "access": "public"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/MrBrunoWolff/the-benchmark.git"
-  },
-  "keywords": [
-    "llm",
-    "benchmark",
-    "lmstudio",
-    "ollama",
-    "llama.cpp",
-    "vllm",
-    "tokens-per-second",
-    "concurrency",
-    "agentic"
-  ],
   "scripts": {
     "bench": "node bench.mjs",
     "concurrent": "node bench.mjs --phases concurrent",
@@ -43,6 +43,10 @@
     "test": "bun test",
     "build:binaries": "bun scripts/build-binaries.ts",
     "system-one": "node bench.mjs --phases system-one"
+  },
+  "engines": {
+    "bun": ">=1.4.0",
+    "node": ">=18"
   },
   "packageManager": "bun@1.4.0"
 }
