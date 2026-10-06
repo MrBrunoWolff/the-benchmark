@@ -59,11 +59,14 @@
     "studio:setup": "node scripts/setup-studio.mjs",
     "studio": "node studio/server.mjs",
     "studio:build": "npm --prefix studio run build",
-    "studio:test": "npm --prefix studio test"
+    "studio:test": "npm --prefix studio test",
+    "check:ci": "node scripts/quality.mjs",
+    "check:code": "node scripts/quality.mjs code",
+    "check:security": "node scripts/quality.mjs security"
   },
   "engines": {
     "bun": ">=1.4.0",
     "node": ">=18"
   },
-  "packageManager": "bun@1.4.0"
+  "packageManager": "bun@1.4.2"
 }

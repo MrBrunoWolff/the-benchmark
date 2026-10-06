@@ -1,0 +1,43 @@
+{
+  "tier": "rich",
+  "bun": "1.4.2",
+  "node": "24.x",
+  "stages": {
+    "code": [
+      [
+        "bun",
+        "run",
+        "test"
+      ],
+      [
+        "node",
+        "--check",
+        "bench.mjs"
+      ],
+      [
+        "bun",
+        "run",
+        "build:binaries",
+        "bun-linux-x64"
+      ],
+      [
+        "npm",
+        "run",
+        "studio:test"
+      ],
+      [
+        "npm",
+        "run",
+        "studio:build"
+      ]
+    ],
+    "security": [
+      [
+        "npm",
+        "audit",
+        "--prefix",
+        "studio"
+      ]
+    ]
+  }
+}
