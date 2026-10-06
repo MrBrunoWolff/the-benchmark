@@ -16,20 +16,49 @@ agent tasks. It also runs the existing prefill, generation, concurrency, agentic
 and System One phases. The original CLI remains dependency-free.
 
 ```bash
+bunx the-benchmark studio
+# Or:
+npx -y the-benchmark studio
+# Open http://localhost:4310
+```
+
+Studio requires Node 22.22+ (Node 24 recommended), npm, and a local model server.
+The first launch installs and builds the optional UI in
+`~/.cache/the-benchmark/<source-hash>/`; subsequent launches reuse it. No checkout,
+global installation, Python installation, or manual setup command is needed.
+
+For **verified tasks**, start Docker Desktop (or the Docker daemon), select your
+model and tasks in the UI, and click **Run benchmark**. Studio automatically
+installs a pinned, checksum-verified uv binary, downloads Python 3.12, installs
+Harbor, and builds the pinned Pi image in its own local runtime. Setup progress
+and errors appear in the UI, and a failed setup can be retried by clicking Run.
+Initial setup needs internet access and may take several minutes. The first task
+run also builds Harbor's network policy sidecar and verifier images; subsequent
+inference and grading use local services and cached container images.
+Serving performance benchmarks do not require Docker.
+
+Automatic task setup supports macOS and Linux on x64/ARM64. Verified tasks are
+currently tested on macOS with Docker Desktop; the host bridge must resolve
+`host.docker.internal`. Native Linux and Windows task execution are not yet validated.
+
+```bash
+bunx the-benchmark studio --port 4321 --data-dir ./benchmark-results
+bunx the-benchmark studio --setup # optionally prepare verified tasks before opening the UI
+```
+
+Runs default to `out/studio` in the directory where you launch the command.
+`--data-dir` (or `BENCHMARK_DATA_DIR`) selects persistent storage independent of the
+UI cache. `BENCHMARK_CACHE_DIR` overrides the optional runtime cache location.
+The `ui` subcommand and `--ui` are aliases for `studio`.
+
+Development from a checkout remains available:
+
+```bash
 git clone https://github.com/MrBrunoWolff/the-benchmark.git
 cd the-benchmark
 npm run studio:setup
 npm run studio
-# Open http://localhost:4310
 ```
-
-Studio requires Node 22.22+ (Node 24 recommended), npm, [uv](https://docs.astral.sh/uv/),
-and running Docker Desktop. Setup installs the optional UI and Harbor into this
-checkout and builds the pinned Pi image. Installation needs internet access;
-subsequent inference and grading use local services and cached container images.
-The first task run also builds Harbor's network policy sidecar and verifier images.
-Studio is currently tested on macOS with Docker Desktop; its host bridge must resolve
-`host.docker.internal`. Native Linux and Windows setup are not yet validated.
 
 Start Ollama or load a model in LM Studio and enable its local server. In Studio,
 choose the endpoint, refresh models, and select your downloaded model.
@@ -66,7 +95,7 @@ are recorded, and automatic trial retries are disabled.
 Runs are serialized to avoid competing for the same GPU. History, task hashes,
 configuration, available model digest/runtime metadata and host hardware, Harbor
 results, Pi trajectories, verifier logs and artifacts remain
-in `out/studio/<run-id>/`. Compare the same task selection, suite revision, harness,
+in the selected run directory (`out/studio/<run-id>/` by default). Compare the same task selection, suite revision, harness,
 budgets, server configuration and hardware. Model IDs alone do not identify exact
 weights or quantization; keep your server's model configuration when reporting scores.
 A cancelled run retains its logs; restarting Studio marks unfinished runs interrupted.
@@ -101,8 +130,9 @@ A server-side tool-decoding error (for example a missing function-call wrapper) 
 an execution error, not evidence that the resulting code failed functional checks.
 These diagnostics do not change the checks or the score.
 
-The npm package and compiled binaries continue to ship only the lightweight CLI.
-Use a repository checkout for Studio. No dependencies are added to the CLI package.
+The npm package ships the Studio sources and pinned dependency lockfile alongside
+the dependency-free CLI. UI dependencies are installed only when Studio is launched.
+Compiled binaries continue to ship only the lightweight CLI.
 
 ## Run it without cloning
 
@@ -116,8 +146,8 @@ bunx the-benchmark --phases prefill,generation,concurrent,agentic # everything, 
 npx -y the-benchmark                                              # same, via npm
 ```
 
-Published as [`the-benchmark`](https://www.npmjs.com/package/the-benchmark) — 4
-files, no dependencies, Node 18+.
+Published as [`the-benchmark`](https://www.npmjs.com/package/the-benchmark) — no CLI
+dependencies, Node 18+ for the CLI and Node 22.22+ for Studio.
 
 If you keep a supply-chain delay on npm installs, a freshly published version will
 not be used until it ages out — and **how that shows up depends on whether you pin

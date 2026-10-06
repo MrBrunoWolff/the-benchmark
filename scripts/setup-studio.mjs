@@ -1,19 +1,11 @@
 #!/usr/bin/env node
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { existsSync } from 'node:fs';
+import { setupTaskRuntime } from './setup-runtime.mjs';
 const root = fileURLToPath(new URL('../', import.meta.url));
-const steps = [
-  ['npm', ['ci', '--ignore-scripts', '--prefix', 'studio']],
-  ...(!existsSync(root + '.venv/bin/python') ? [['uv', ['venv', '--python', '3.12', '.venv']]] : []),
-  ['uv', ['pip', 'install', '--python', '.venv/bin/python', '-r', 'harness/requirements.lock']],
-  ['docker', ['build', '-t', 'the-benchmark-pi:1.0.4', 'harness']],
-];
-for (const [command, args] of steps) {
-  const r = spawnSync(command, args, { cwd: root, stdio: 'inherit' });
-  if (r.error || r.status !== 0) {
-    console.error(r.error?.message || `${command} failed; start Docker Desktop if needed.`);
-    process.exit(1);
-  }
-}
-console.log('\nReady. Run npm run studio, then open http://localhost:4310.');
+try {
+  const result = spawnSync('npm', ['ci', '--ignore-scripts', '--prefix', 'studio'], { cwd: root, stdio: 'inherit' });
+  if (result.error || result.status !== 0) throw new Error(result.error?.message || 'Studio dependency installation failed');
+  await setupTaskRuntime(root, text => process.stdout.write(text));
+  console.log('\nReady. Run npm run studio, then open http://localhost:4310.');
+} catch (error) { console.error(error.message); process.exitCode = 1; }

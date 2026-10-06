@@ -6,6 +6,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { arch, platform, cpus, totalmem } from 'node:os';
 import { ROOT, RUNS, VERSIONS, parseConfig, localEndpoint, harborConfig, safeRelative } from './config.mjs';
 import { walkFiles, readJson, taskResults, summarize, parseSpeedOutput } from './results.mjs';
+import { setupTaskRuntime } from '../../scripts/setup-runtime.mjs';
 
 const exec = promisify(execFile);
 const stripAnsi = text => text.replace(/\x1b\[[0-?]*[ -/]*[@-~]/g, '');
@@ -41,9 +42,11 @@ export async function discoverModels(endpoint) {
 }
 
 export class RunManager {
-  constructor({ root = ROOT, runs = RUNS, spawnProcess = spawn } = {}) {
+  constructor({ root = ROOT, runs = RUNS, spawnProcess = spawn, setupRuntime = setupTaskRuntime } = {}) {
     this.root = root; this.directory = runs; this.spawnProcess = spawnProcess;
     this.runs = new Map(); this.active = null; this.queue = [];
+    this.setupRuntime = setupRuntime; this.setup = { status: 'idle', log: '' }; this.setupPromise = null;
+    this.setupAbort = new AbortController(); this.closed = false;
     mkdirSync(runs, { recursive: true });
     for (const id of readdirSync(runs)) {
       const run = readJson(join(runs, id, 'run.json'));
@@ -74,7 +77,8 @@ export class RunManager {
       check(join(this.root, '.venv/bin/harbor'), ['--version']),
       check('docker', ['image', 'inspect', 'the-benchmark-pi:1.0.4', '--format', '{{.Id}}']),
     ]);
-    return { docker, harbor, image, versions: VERSIONS, taskReady: docker.ready && harbor.ready && image.ready };
+    return { docker, harbor, image, setup: this.setup, versions: VERSIONS,
+      taskReady: docker.ready && harbor.ready && image.ready && existsSync(join(this.root, '.task-runtime-ready')) };
   }
   async start(input) {
     const config = parseConfig(input);
@@ -83,8 +87,20 @@ export class RunManager {
     if (!discovery.models.some(m => m.id === config.model)) throw new Error('Selected model is not available at this endpoint; refresh models');
     if (config.kind === 'tasks') {
       const health = await this.health();
-      if (!health.taskReady) throw new Error('Task runner is not ready. Run npm run studio:setup and start Docker Desktop.');
+      if (!health.docker.ready) throw new Error('Start Docker Desktop (or the Docker daemon), then refresh the environment check.');
+      if (!health.taskReady) {
+        if (!this.setupPromise) {
+          this.setup = { status: 'running', log: '' };
+          this.setupPromise = this.setupRuntime(this.root, text => {
+            this.setup.log = (this.setup.log + text).slice(-64000);
+          }, { signal: this.setupAbort.signal }).then(() => { this.setup.status = 'ready'; }).catch(error => {
+            this.setup.status = 'error'; this.setup.log += `\n${error.message}`; throw error;
+          }).finally(() => { this.setupPromise = null; });
+        }
+        await this.setupPromise;
+      }
     }
+    if (this.closed) throw new Error('Studio is stopping');
     const backend = await backendSnapshot(config.endpoint, config.model);
     const id = randomUUID(), createdAt = new Date().toISOString();
     const taskHashes = Object.fromEntries(config.tasks.map(task => {
@@ -106,8 +122,7 @@ export class RunManager {
     run.status = 'running'; run.startedAt = new Date().toISOString(); this.save(run);
     let command, args;
     if (run.config.kind === 'tasks') {
-      const config = harborConfig(run.config, id, this.root);
-      config.jobs_dir = directory;
+      const config = harborConfig(run.config, id, this.root, this.directory);
       writeFileSync(join(directory, 'harbor.json'), JSON.stringify(config, null, 2));
       command = join(this.root, '.venv/bin/harbor'); args = ['run', '--config', join(directory, 'harbor.json')];
     } else {
@@ -190,5 +205,5 @@ export class RunManager {
     if (size > 2 * 1024 * 1024) return { path, text: 'File exceeds the 2 MB inspector limit. Open it from the saved run directory.', truncated: true };
     return { path, text: readFileSync(actual, 'utf8'), truncated: false };
   }
-  close() { for (const id of [...this.queue]) this.cancel(id); if (this.active) this.cancel(this.active.id); }
+  close() { this.closed = true; this.setupAbort.abort(); for (const id of [...this.queue]) this.cancel(id); if (this.active) this.cancel(this.active.id); }
 }
