@@ -1,6 +1,6 @@
 {
   "name": "the-benchmark",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Minimal zero-dependency benchmark for local LLM servers (LM Studio, Ollama, llama.cpp, vLLM): prefill, generation, a live concurrency sweep, and a real agentic tool-calling loop.",
   "keywords": [
     "agentic",

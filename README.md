@@ -9,7 +9,7 @@ base URL changes between backends.
 Works against any OpenAI-compatible `/v1/chat/completions` endpoint: LM Studio,
 Ollama, llama.cpp server, vLLM.
 
-## Local benchmark Studio (0.4)
+## Local benchmark Studio (0.5)
 
 The optional Studio adds a local UI for independently verified coding and file-based
 agent tasks. It also runs the existing prefill, generation, concurrency, agentic,

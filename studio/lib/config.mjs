@@ -3,7 +3,7 @@ import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 export const ROOT = fileURLToPath(new URL('../../', import.meta.url));
 export const RUNS = resolve(process.env.BENCHMARK_DATA_DIR || join(ROOT, 'out', 'studio'));
-export const VERSIONS = Object.freeze({ studio: '0.4.0', harbor: '0.24.0', pi: '1.0.4', agentNative: '0.201.1' });
+export const VERSIONS = Object.freeze({ studio: '0.5.0', harbor: '0.24.0', pi: '1.0.4', agentNative: '0.201.1' });
 export const RunSchema = z.object({
   kind: z.enum(['tasks', 'speed']),
   endpoint: z.string().default('http://localhost:11434'),
