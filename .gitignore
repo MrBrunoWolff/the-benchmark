@@ -5,3 +5,6 @@ binaries/
 .env
 .env.*
 !.env.example
+.venv/
+studio/dist/
+__pycache__/

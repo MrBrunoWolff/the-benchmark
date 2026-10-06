@@ -1,0 +1,26 @@
+{
+  "id": "local-v1",
+  "version": "1.0.0",
+  "name": "Local foundations",
+  "description": "Three small, independently verified tasks. A smoke suite, not a leaderboard.",
+  "tasks": [
+    {
+      "id": "money-split",
+      "title": "Fix exact bill splitting",
+      "category": "coding",
+      "description": "Repair integer-cent allocation and validate inputs."
+    },
+    {
+      "id": "csv-parser",
+      "title": "Repair a CSV parser",
+      "category": "coding",
+      "description": "Handle quoted fields, escaped quotes and multiline records."
+    },
+    {
+      "id": "ticket-triage",
+      "title": "Route support tickets",
+      "category": "operations",
+      "description": "Apply routing and urgency policy to a local support inbox."
+    }
+  ]
+}

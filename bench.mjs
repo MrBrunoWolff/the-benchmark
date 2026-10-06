@@ -1760,6 +1760,7 @@ for (const [path, content] of vfs) {
   writeFileSync(dest, content);
 }
 writeRunReport(runDir, { ...run, timings, totalS });
+writeFileSync(join(runDir, 'results.json'), JSON.stringify({ target, base, model, runs, depths, concurrency, concTokens, scenario, latencyMode, latencyMs, totalS, timings, results }, null, 2));
 if (run.systemOne) writeFileSync(join(runDir, 'system-one.json'), JSON.stringify(run.systemOne, null, 2));
 
 console.log('\nTIME TAKEN');
