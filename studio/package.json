@@ -1,0 +1,27 @@
+{
+  "name": "the-benchmark-studio",
+  "version": "0.4.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node server.mjs",
+    "build": "vite build",
+    "test": "node --test tests/*.test.mjs"
+  },
+  "dependencies": {
+    "@agent-native/core": "0.201.1",
+    "react": "19.2.7",
+    "react-dom": "19.2.7",
+    "zod": "4.3.6"
+  },
+  "devDependencies": {
+    "vite": "8.3.3"
+  },
+  "engines": {
+    "node": ">=22.22"
+  },
+  "overrides": {
+    "@anthropic-ai/sdk": "0.91.1",
+    "esbuild": "0.28.1"
+  }
+}

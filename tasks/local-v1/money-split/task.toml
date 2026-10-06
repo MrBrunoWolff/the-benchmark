@@ -1,0 +1,18 @@
+schema_version = "1.4"
+artifacts = ["/app"]
+[metadata]
+suite = "local-v1"
+category = "coding"
+[agent]
+timeout_sec = 600
+[environment]
+cpus = 2
+memory_mb = 1024
+network_mode = "allowlist"
+allowed_hosts = ["host.docker.internal"]
+[verifier]
+timeout_sec = 30
+network_mode = "no-network"
+environment_mode = "separate"
+[verifier.environment]
+network_mode = "no-network"

@@ -1,0 +1,26 @@
+[
+  {
+    "id": "t1",
+    "text": "The app works, but I was charged twice. Please refund the extra charge."
+  },
+  {
+    "id": "t2",
+    "text": "Nobody can sign in. All work has stopped and there is no workaround. No refund needed."
+  },
+  {
+    "id": "t3",
+    "text": "PDF export is broken, but CSV export works. Please fix it."
+  },
+  {
+    "id": "t4",
+    "text": "Everything works. What does the team plan cost?"
+  },
+  {
+    "id": "t5",
+    "text": "Can you explain your refund policy? Nothing is broken."
+  },
+  {
+    "id": "t6",
+    "text": "Thanks for your help yesterday."
+  }
+]
