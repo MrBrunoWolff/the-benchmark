@@ -86,6 +86,11 @@ node studio/server.mjs --production
 npm test                # existing CLI regression suite
 ```
 
+New Studio benchmarks default to 4,096 output tokens per turn, a 600-second task
+time limit and a 131,072-token context window. Match the context window to your
+local server's capacity in **Advanced**; this setting does not resize the server's
+context or guarantee that a model completes a task correctly.
+
 If a task fails, inspect its outcome, transcript and saved artifact. Studio labels
 output-token truncation separately from the turn budget and shows tool errors.
 A final response with `finish_reason: length` can end before a valid write/edit call,

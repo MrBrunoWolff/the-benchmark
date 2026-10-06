@@ -41,7 +41,7 @@ function App() {
   const [selected, setSelected] = useState(null), [detail, setDetail] = useState(null);
   const [error, setError] = useState(''), [pending, setPending] = useState(false), [connecting, setConnecting] = useState(false);
   const [advanced, setAdvanced] = useState(false);
-  const [options, setOptions] = useState({ repeats: 1, maxTurns: 24, maxTokens: 4096, contextWindow: 32768, timeout: 600, reasoning: 'none', temperature: 0, genTokens: 256 });
+  const [options, setOptions] = useState({ repeats: 1, maxTurns: 24, maxTokens: 4096, contextWindow: 131072, timeout: 600, reasoning: 'none', temperature: 0, genTokens: 256 });
   const [phases, setPhases] = useState(['prefill', 'generation']);
   const [sizes, setSizes] = useState('256,2048,8192'), [depths, setDepths] = useState('0'), [concurrency, setConcurrency] = useState('1,2,4');
   const [file, setFile] = useState(null), [tab, setTab] = useState('activity');

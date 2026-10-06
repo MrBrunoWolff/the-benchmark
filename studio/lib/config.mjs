@@ -12,7 +12,7 @@ export const RunSchema = z.object({
   repeats: z.number().int().min(1).max(10).default(1),
   maxTurns: z.number().int().min(1).max(100).default(24),
   maxTokens: z.number().int().min(256).max(16384).default(4096),
-  contextWindow: z.number().int().min(4096).max(262144).default(32768),
+  contextWindow: z.number().int().min(4096).max(262144).default(131072),
   timeout: z.number().int().min(30).max(3600).default(600),
   reasoning: z.enum(['default', 'none', 'low', 'medium', 'high']).default('none'),
   temperature: z.number().min(0).max(2).default(0),
