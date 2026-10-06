@@ -58,6 +58,31 @@ test('grading distinguishes self-reported completion, failures, missing grades a
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
+test('output truncation stays distinct from turn limits, verifier failure and gateway errors', () => {
+  const root = mkdtempSync(join(tmpdir(), 'benchmark-truncation-'));
+  try {
+    const add = (id, reward, events) => {
+      const dir = join(root, 'job', id); mkdirSync(join(dir, 'agent'), { recursive: true });
+      writeFileSync(join(dir, 'result.json'), JSON.stringify({ trial_name: id, verifier_result: { rewards: { reward } } }));
+      writeFileSync(join(dir, 'agent', 'pi.txt'), events.map(e => JSON.stringify(e)).join('\n'));
+    };
+    const length = { type: 'message_end', message: { role: 'assistant', stopReason: 'length', content: [], usage: { output: 2048 } } };
+    add('truncated', 0, [
+      { type: 'tool_execution_end', toolName: 'read', isError: true, result: { content: [{ type: 'text', text: 'EISDIR' }] } }, length,
+    ]);
+    add('recovered', 1, [length, { type: 'message_end', message: { role: 'assistant', stopReason: 'stop' } }]);
+    add('gateway', 0, [{ type: 'message_end', message: { role: 'assistant', stopReason: 'error', errorMessage: '500: missing function_calls wrapper' } }]);
+    const trials = taskResults(root), truncated = trials.find(t => t.id === 'truncated');
+    assert.equal(truncated.status, 'failed'); assert.equal(truncated.outputBudgetExhausted, true);
+    assert.equal(truncated.budgetExhausted, false); assert.equal(truncated.lastStopReason, 'length');
+    assert.deepEqual(truncated.toolErrors, [{ tool: 'read', message: 'EISDIR' }]);
+    assert.equal(trials.find(t => t.id === 'recovered').status, 'passed');
+    assert.equal(trials.find(t => t.id === 'recovered').lastStopReason, 'stop');
+    assert.equal(trials.find(t => t.id === 'gateway').status, 'error');
+    assert.equal(trials.find(t => t.id === 'gateway').outputBudgetExhausted, false);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
 test('legacy console JSON is parsed without mistaking log lines for results', () => {
   const result = { model: 'muse', results: [{ phase: 'generation', tokens: 7 }] };
   assert.deepEqual(parseSpeedOutput(`Prefill log\nreport /tmp/report.html\n\n${JSON.stringify(result, null, 2)}\n`), result);

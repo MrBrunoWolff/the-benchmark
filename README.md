@@ -86,6 +86,16 @@ node studio/server.mjs --production
 npm test                # existing CLI regression suite
 ```
 
+If a task fails, inspect its outcome, transcript and saved artifact. Studio labels
+output-token truncation separately from the turn budget and shows tool errors.
+A final response with `finish_reason: length` can end before a valid write/edit call,
+leaving the original broken file unchanged. For a new attempt, increase **Advanced →
+Output tokens / turn** and the task time limit together; **Run again** preserves the
+previous budgets. Zero temperature can reproduce the same failure across attempts.
+A server-side tool-decoding error (for example a missing function-call wrapper) is
+an execution error, not evidence that the resulting code failed functional checks.
+These diagnostics do not change the checks or the score.
+
 The npm package and compiled binaries continue to ship only the lightweight CLI.
 Use a repository checkout for Studio. No dependencies are added to the CLI package.
 

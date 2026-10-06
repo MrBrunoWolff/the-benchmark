@@ -22,6 +22,7 @@
   },
   "overrides": {
     "@anthropic-ai/sdk": "0.91.1",
-    "esbuild": "0.28.1"
+    "esbuild": "0.28.1",
+    "@modelcontextprotocol/client": "2.2.0"
   }
 }
