@@ -4,7 +4,7 @@ import { join, extname } from 'node:path';
 import { createServer as createViteServer } from 'vite';
 import { createActions } from './actions.mjs';
 import { RunManager } from './lib/runner.mjs';
-import { ROOT, safeRelative } from './lib/config.mjs';
+import { ROOT, RUNS, safeRelative } from './lib/config.mjs';
 
 export async function startServer({ port = Number(process.env.BENCHMARK_PORT || 4310), manager = new RunManager(), production = process.argv.includes('--production') } = {}) {
   const actions = createActions(manager);
@@ -47,7 +47,7 @@ export async function startServer({ port = Number(process.env.BENCHMARK_PORT || 
 
 if (process.argv[1] === new URL(import.meta.url).pathname) {
   const app = await startServer();
-  console.log(`\n  the-benchmark studio  →  http://localhost:${app.port}\n  Runs are saved under out/studio. Ctrl+C stops the UI and cancels active work.\n`);
+  console.log(`\n  the-benchmark studio  →  http://localhost:${app.port}\n  Runs are saved under ${RUNS}. Ctrl+C stops the UI and cancels active work.\n`);
   process.once('SIGINT', async () => { await app.stop(); });
   process.once('SIGTERM', async () => { await app.stop(); });
 }

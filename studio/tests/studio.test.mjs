@@ -111,6 +111,30 @@ test('typed actions validate input before calling the runner', async () => {
   await assert.rejects(() => actions.startRun.run({ kind: 'tasks', model: 'muse', repeats: -1 }));
 });
 
+test('first verified run prepares its runtime, reports setup errors and retries from the UI', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'benchmark-auto-setup-'));
+  const server = createServer((req, res) => { res.setHeader('Content-Type', 'application/json'); if (req.url === '/v1/models') res.end(JSON.stringify({ data: [{ id: 'muse' }] })); else { res.statusCode = 404; res.end('{}'); } });
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  let attempts = 0, child;
+  const manager = new RunManager({ root: ROOT, runs: directory,
+    setupRuntime: async (_, log) => { attempts++; log('Preparing runtime…'); if (attempts === 1) throw new Error('download interrupted'); },
+    spawnProcess: () => { child = new EventEmitter(); child.stdout = new EventEmitter(); child.stderr = new EventEmitter(); return child; },
+  });
+  manager.health = async () => ({ docker: { ready: true }, taskReady: false });
+  const config = { kind: 'tasks', model: 'muse', endpoint: `http://127.0.0.1:${server.address().port}`, tasks: ['money-split'] };
+  try {
+    await assert.rejects(() => manager.start(config), /download interrupted/);
+    assert.equal(manager.setup.status, 'error'); assert.match(manager.setup.log, /download interrupted/);
+    assert.equal(manager.list().length, 0);
+    const run = await manager.start(config);
+    assert.equal(attempts, 2); assert.equal(manager.setup.status, 'ready');
+    const job = JSON.parse((await manager.file(run.id, 'harbor.json')).text);
+    assert.equal(job.jobs_dir, join(directory, run.id));
+    assert.ok(job.tasks[0].path.startsWith(ROOT));
+    child.emit('close', 1);
+  } finally { manager.close(); await new Promise(resolve => server.close(resolve)); rmSync(directory, { recursive: true, force: true }); }
+});
+
 test('runs persist, queued cancellation prevents execution, and restart marks interrupted work', async () => {
   const directory = mkdtempSync(join(tmpdir(), 'benchmark-runner-'));
   const server = createServer((req, res) => { res.setHeader('Content-Type', 'application/json'); if (req.url !== '/v1/models') { res.statusCode = 404; res.end('{}'); } else res.end(JSON.stringify({ data: [{ id: 'muse' }] })); });

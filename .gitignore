@@ -8,3 +8,7 @@ binaries/
 .venv/
 studio/dist/
 __pycache__/
+.tools/
+.python/
+.uv-cache/
+.task-runtime-ready

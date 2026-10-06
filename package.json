@@ -23,10 +23,23 @@
     "url": "git+https://github.com/MrBrunoWolff/the-benchmark.git"
   },
   "bin": {
-    "the-benchmark": "bench.mjs"
+    "the-benchmark": "cli.mjs"
   },
   "files": [
     "bench.mjs",
+    "cli.mjs",
+    "scripts/launch-studio.mjs",
+    "scripts/setup-studio.mjs",
+    "scripts/setup-runtime.mjs",
+    "studio/server.mjs",
+    "studio/actions.mjs",
+    "studio/lib/",
+    "studio/src/",
+    "studio/index.html",
+    "studio/package.json",
+    "studio/package-lock.json",
+    "tasks/",
+    "harness/",
     "README.md",
     "LICENSE"
   ],

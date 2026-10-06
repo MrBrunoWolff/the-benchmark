@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 export const ROOT = fileURLToPath(new URL('../../', import.meta.url));
-export const RUNS = join(ROOT, 'out', 'studio');
+export const RUNS = resolve(process.env.BENCHMARK_DATA_DIR || join(ROOT, 'out', 'studio'));
 export const VERSIONS = Object.freeze({ studio: '0.4.0', harbor: '0.24.0', pi: '1.0.4', agentNative: '0.201.1' });
 export const RunSchema = z.object({
   kind: z.enum(['tasks', 'speed']),
@@ -47,9 +47,9 @@ export function parseConfig(input) {
   if (config.maxTokens >= config.contextWindow) throw new Error('Output budget must be smaller than the context window');
   return config;
 }
-export function harborConfig(config, id, root = ROOT) {
+export function harborConfig(config, id, root = ROOT, runs = join(root, 'out', 'studio')) {
   return {
-    job_name: 'job', jobs_dir: join(root, 'out', 'studio', id), n_attempts: config.repeats,
+    job_name: 'job', jobs_dir: join(runs, id), n_attempts: config.repeats,
     n_concurrent_trials: 1, quiet: true, retry: { max_retries: 0 },
     environment: { type: 'docker', delete: true },
     agents: [{ import_path: 'benchmark_harness:BenchmarkPi', model_name: `openai/${config.model}`,
