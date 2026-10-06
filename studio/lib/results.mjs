@@ -33,12 +33,22 @@ export function taskResults(directory) {
     let error = result.exception_info;
     const transcriptPath = file.replace(/result.json$/, 'agent/pi.txt');
     let budgetExhausted = false;
+    let outputBudgetExhausted = false;
+    let lastStopReason = null;
+    const toolErrors = [];
     try {
       const transcript = readFileSync(transcriptPath, 'utf8');
       budgetExhausted = transcript.includes('"type":"benchmark_budget"');
       for (const line of transcript.split('\n')) {
         let event; try { event = JSON.parse(line); } catch { continue; }
-        if (event.type === 'message_end' && event.message?.stopReason === 'error') {
+        if (event?.type === 'message_end' && event.message?.role === 'assistant') {
+          lastStopReason = event.message.stopReason ?? event.message.rawStopReason ?? null;
+          if (event.message.stopReason === 'length' || event.message.rawStopReason === 'length') outputBudgetExhausted = true;
+        }
+        if (event?.type === 'tool_execution_end' && event.isError) {
+          toolErrors.push({ tool: event.toolName, message: (event.result?.content || []).filter(c => c.type === 'text').map(c => c.text).join('\n').slice(0, 500) });
+        }
+        if (event?.type === 'message_end' && event.message?.stopReason === 'error') {
           error = { exception_type: 'ModelRequestError', exception_message: event.message.errorMessage || 'Model request failed' };
         }
       }
@@ -50,7 +60,7 @@ export function taskResults(directory) {
       seconds: duration(result.agent_execution), setupSeconds: duration(result.environment_setup),
       inputTokens: result.agent_result?.n_input_tokens ?? null,
       outputTokens: result.agent_result?.n_output_tokens ?? null,
-      budgetExhausted,
+      budgetExhausted, outputBudgetExhausted, lastStopReason, toolErrors: toolErrors.slice(-5),
       error: error ? { type: error.exception_type, message: error.exception_message } : null,
       checksum: result.task_checksum, agentVersion: result.agent_info?.version,
       resultFile: relative(directory, file),
@@ -61,7 +71,7 @@ export function taskResults(directory) {
 export function summarize(trials, expected) {
   const passed = trials.filter(t => t.status === 'passed').length;
   const setupErrors = trials.filter(t => t.status === 'setup_error').length;
-    const attempted = trials.filter(t => ['passed', 'failed'].includes(t.status)).length;
+  const attempted = trials.filter(t => ['passed', 'failed'].includes(t.status)).length;
   const median = values => {
     const ordered = values.filter(v => v != null).sort((a, b) => a - b);
     if (!ordered.length) return null;
