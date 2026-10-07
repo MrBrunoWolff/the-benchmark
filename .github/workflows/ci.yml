@@ -81,6 +81,7 @@ jobs:
 
   publish:
     name: Publish to npm
+    timeout-minutes: 45
     concurrency:
       group: npm-publish
       cancel-in-progress: false
@@ -124,37 +125,4 @@ jobs:
 
 
       - name: Publish to npm (if version changed)
-        run: |
-          # No NODE_AUTH_TOKEN on purpose: with a trusted publisher configured,
-          # the CLI exchanges this job's OIDC identity for a short-lived
-          # credential itself, and npm attaches a provenance attestation.
-          PACKAGE_VERSION=$(node -p "require('./package.json').version")
-          PACKAGE_NAME=$(node -p "require('./package.json').name")
-
-          # Trusted publishing cannot perform a package's *first* publish: npm
-          # requires the package to exist before a trusted publisher can be
-          # configured on it. Skip until that one-time bootstrap is done, so CI
-          # is not red for a reason unrelated to the code.
-          if ! npm view "$PACKAGE_NAME" version >/dev/null 2>&1; then
-            echo "$PACKAGE_NAME does not exist on npm yet."
-            echo "Publish once manually, then configure the trusted publisher"
-            echo "(repository: this one, workflow: ci.yml)."
-            exit 0
-          fi
-
-          if npm view "$PACKAGE_NAME@$PACKAGE_VERSION" version >/dev/null 2>&1; then
-            echo "Version $PACKAGE_VERSION already exists, skipping publish"
-            exit 0
-          fi
-
-          echo "Publishing $PACKAGE_NAME@$PACKAGE_VERSION via trusted publishing"
-
-          # A failure here is a real failure. Auth errors used to be tolerated
-          # while trusted publishers were still being set up, but that made a
-          # green run mean "nothing went wrong" rather than "published" — the
-          # wrong signal for a release pipeline. If this fails with E404 or
-          # EOTP, the trusted publisher for this package is missing or its
-          # fields do not match: organization MrBrunoWolff, this repository,
-          # workflow ci.yml, environment empty.
-          npm publish
-          echo "Published $PACKAGE_NAME@$PACKAGE_VERSION"
+        run: node scripts/publish-npm.mjs
