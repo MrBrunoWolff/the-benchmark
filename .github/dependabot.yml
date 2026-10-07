@@ -1,19 +1,25 @@
+# One weekly PR combines package dependencies and GitHub Actions.
+# Security updates remain independent of this version-update schedule.
 version: 2
+multi-ecosystem-groups:
+  weekly-updates:
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "America/Sao_Paulo"
+    assignees: ["MrBrunoWolff"]
+    labels: ["dependencies"]
 updates:
   - package-ecosystem: "npm"
     directory: "/studio"
-    schedule:
-      interval: "weekly"
-    assignees: ["MrBrunoWolff"]
-    labels: ["dependencies"]
+    patterns: ["*"]
+    multi-ecosystem-group: "weekly-updates"
     cooldown:
       default-days: 3
-    groups:
-      compatible-updates:
-        update-types: ["minor", "patch"]
   - package-ecosystem: "github-actions"
     directory: "/"
-    schedule:
-      interval: "weekly"
-    assignees: ["MrBrunoWolff"]
-    labels: ["dependencies"]
+    patterns: ["*"]
+    multi-ecosystem-group: "weekly-updates"
+    cooldown:
+      default-days: 3
