@@ -91,3 +91,38 @@ test("registry outages fail before publishing and during polling", async () => {
     assert.deepEqual(s.sleeps, []);
   }
 });
+
+for (const [format, stdout] of [
+  ['string', JSON.stringify(pkg.version)],
+  ['array', JSON.stringify([pkg.version])],
+]) {
+  test(`already published version in ${format} format never invokes publish`, async () => {
+    const s = scenario([{ status: 0, stdout, stderr: '' }]);
+    await publishPackage(pkg, s.options);
+    assert.deepEqual(s.calls, ['view']);
+  });
+
+  for (const [label, upload] of [
+    ['accepted upload', accepted],
+    ['staged conflict', staged],
+  ]) {
+    test(`${label} confirms ${format} response after polling`, async () => {
+      const s = scenario([missing, upload, missing, { status: 0, stdout, stderr: '' }]);
+      await publishPackage(pkg, s.options);
+      assert.deepEqual(s.calls, ['view', 'publish', 'view', 'view']);
+      assert.deepEqual(s.sleeps, [30_000]);
+    });
+  }
+}
+
+test('unexpected registry responses fail before publishing and during polling', async () => {
+  for (const value of ['1.0.0', [], ['1.0.0'], ['1.1.0', '1.0.0'], null, { version: '1.1.0' }]) {
+    const unexpected = { status: 0, stdout: JSON.stringify(value), stderr: '' };
+    for (const results of [[unexpected], [missing, staged, unexpected]]) {
+      const s = scenario(results);
+      await assert.rejects(publishPackage(pkg, s.options), /Unexpected registry version/);
+      assert.deepEqual(s.sleeps, []);
+      assert.ok(s.calls.filter((call) => call === 'publish').length <= 1);
+    }
+  }
+});

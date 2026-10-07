@@ -28,7 +28,11 @@ export async function publishPackage(
     ]);
     if (result.error) throw result.error;
     if (result.status === 0) {
-      if (JSON.parse(result.stdout) !== version)
+      // npm 12 returns an array even for an exact version; older CLIs return
+      // a string. Confirm exactly one matching version in either format.
+      const value = JSON.parse(result.stdout);
+      const versions = Array.isArray(value) ? value : [value];
+      if (versions.length !== 1 || versions[0] !== version)
         throw new Error(`Unexpected registry version for ${spec}`);
       return true;
     }
