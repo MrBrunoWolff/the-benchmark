@@ -29,6 +29,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
+          persist-credentials: false
           fetch-depth: 0
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
@@ -36,9 +37,14 @@ jobs:
           package-manager-cache: false
       - name: Check new dependency resolutions
         env:
+          GH_TOKEN: ${{ github.token }}
           DEPENDENCY_POLICY_BASE: ${{ github.event.pull_request.base.sha || github.event.before || 'HEAD' }}
           DEPENDENCY_SECURITY_UPDATE: ${{ github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'security') }}
-        run: node .github/scripts/check-dependency-releases.mjs
+        run: |
+          if ! git cat-file -e "$DEPENDENCY_POLICY_BASE^{commit}" 2>/dev/null; then
+            git -c credential.helper= -c 'credential.helper=!gh auth git-credential' fetch --no-tags --depth=1 origin "$DEPENDENCY_POLICY_BASE"
+          fi
+          node .github/scripts/check-dependency-releases.mjs
 
   code:
     needs: release-policy
@@ -48,6 +54,8 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           node-version: "24.x"
@@ -67,6 +75,8 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           node-version: "24.x"
@@ -120,6 +130,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
@@ -137,7 +149,7 @@ jobs:
       # Trusted publishing needs npm >= 11.5.1.
       - name: Ensure npm supports trusted publishing
         run: |
-          npm install -g npm@latest
+          node -e 'const [major, minor, patch] = require("node:child_process").execFileSync("npm", ["--version"], {encoding:"utf8"}).trim().split(".").map(Number); if (major < 11 || (major === 11 && (minor < 5 || (minor === 5 && patch < 1)))) throw new Error("Trusted publishing requires npm >= 11.5.1");'
           echo "npm $(npm --version) / node $(node --version)"
 
       - name: Install dependencies
