@@ -35,6 +35,7 @@ export async function startServer({ port = Number(process.env.BENCHMARK_PORT || 
     try {
       const base = join(studio, 'dist');
       let file = path === '/' ? join(base, 'index.html') : safeRelative(base, decodeURIComponent(path).replace(/^\/+/, ''));
+      if (existsSync(join(file, 'index.html'))) file = join(file, 'index.html');
       if (!existsSync(file)) file = join(base, 'index.html');
       res.writeHead(200, { 'Content-Type': ({ '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml' })[extname(file)] || 'application/octet-stream' });
       res.end(readFileSync(file));
