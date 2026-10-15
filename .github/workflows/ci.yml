@@ -1,3 +1,4 @@
+# Public repository: keep CI on GitHub-hosted runners.
 name: CI
 
 on:
