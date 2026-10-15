@@ -1,0 +1,118 @@
+{
+  "id": "cdde47ec-4dd6-4467-b53b-1ef7c4749b01",
+  "status": "completed",
+  "createdAt": "2026-10-15T18:45:28.193Z",
+  "config": {
+    "kind": "tasks",
+    "endpoint": "http://localhost:11434",
+    "model": "lfm2.5:24b",
+    "tasks": [
+      "money-split"
+    ],
+    "repeats": 1,
+    "maxTurns": 1,
+    "maxTokens": 256,
+    "contextWindow": 131072,
+    "timeout": 120,
+    "reasoning": "none",
+    "temperature": 0,
+    "phases": [
+      "prefill",
+      "generation"
+    ],
+    "sizes": [
+      256,
+      2048,
+      8192
+    ],
+    "depths": [
+      0
+    ],
+    "concurrency": [
+      1,
+      2,
+      4
+    ],
+    "genTokens": 256
+  },
+  "backend": {
+    "serverVersion": "0.40.4",
+    "model": {
+      "name": "lfm2.5:24b",
+      "model": "lfm2.5:24b",
+      "size": 17649578802,
+      "digest": "00a755688d0f0e0848bc967f84f28151a4d09a9a5e69c3750ef97a4e21a58fc8",
+      "details": {
+        "parent_model": "",
+        "format": "gguf",
+        "family": "lfm2moe",
+        "families": [
+          "lfm2moe"
+        ],
+        "parameter_size": "24.0B",
+        "quantization_level": "Q4_K_M"
+      },
+      "expires_at": "2026-10-15T16:08:46.5003357-03:00",
+      "size_vram": 17649578802,
+      "context_length": 131072,
+      "runner": "llamacpp"
+    },
+    "capturedAt": "2026-10-15T18:45:28.193Z"
+  },
+  "hardware": {
+    "platform": "linux",
+    "architecture": "x64",
+    "cpu": "AMD Ryzen 7 5800X3D 8-Core Processor",
+    "cpuCount": 16,
+    "memoryBytes": 16724680704
+  },
+  "versions": {
+    "studio": "0.4.0",
+    "harbor": "0.24.0",
+    "pi": "1.0.4",
+    "agentNative": "0.201.1",
+    "adapter": "2"
+  },
+  "suite": "local-v1@1.0.0",
+  "taskHashes": {
+    "money-split": "b9c9324aeb54bb22369f19c947d96ac260287e83c27bce724fb462652b7018fb"
+  },
+  "trials": [
+    {
+      "id": "money-split__XKvTGoS",
+      "task": "money-split",
+      "status": "failed",
+      "reward": 0,
+      "seconds": 4.617,
+      "setupSeconds": 5.876,
+      "inputTokens": 1476,
+      "outputTokens": 128,
+      "budgetExhausted": true,
+      "outputBudgetExhausted": false,
+      "lastStopReason": "error",
+      "thinkingObserved": true,
+      "requestReasoningEffort": "none",
+      "toolErrors": [],
+      "error": null,
+      "checksum": "b339a74df700b64c979e161e32ecc579196d6914f9bb2f8ebc46e8f6edecddc2",
+      "agentVersion": "1.0.4",
+      "resultFile": "job/money-split__XKvTGoS/result.json"
+    }
+  ],
+  "summary": {
+    "expected": 1,
+    "completed": 1,
+    "passed": 0,
+    "failed": 1,
+    "setupErrors": 0,
+    "errors": 0,
+    "successRate": 0,
+    "medianSeconds": 4.617,
+    "inputTokens": 1476,
+    "outputTokens": 128
+  },
+  "startedAt": "2026-10-15T18:45:28.196Z",
+  "exitCode": 0,
+  "finishedAt": "2026-10-15T18:45:57.780Z",
+  "seconds": 29.584
+}

@@ -1,0 +1,43 @@
+{
+  "date": "2026-10-15",
+  "benchmarkCommit": "37983df",
+  "cpu": "AMD Ryzen 7 5800X3D 8-Core Processor",
+  "gpu": "AMD Radeon RX 7900 XT",
+  "gpuDriver": "32.0.32015.2008",
+  "hostMemoryBytes": 34267803648,
+  "clientEnvironment": "Ubuntu on WSL2, kernel 6.18.54.1-microsoft-standard-WSL2",
+  "clientMemoryBytes": 16724680704,
+  "backend": {
+    "serverVersion": "0.40.4",
+    "model": {
+      "name": "lfm2.5:24b",
+      "model": "lfm2.5:24b",
+      "size": 17649578802,
+      "digest": "00a755688d0f0e0848bc967f84f28151a4d09a9a5e69c3750ef97a4e21a58fc8",
+      "details": {
+        "parent_model": "",
+        "format": "gguf",
+        "family": "lfm2moe",
+        "families": [
+          "lfm2moe"
+        ],
+        "parameter_size": "24.0B",
+        "quantization_level": "Q4_K_M"
+      },
+      "expires_at": "2026-10-15T14:27:19.9968891-03:00",
+      "size_vram": 17649578802,
+      "context_length": 131072,
+      "runner": "llamacpp"
+    },
+    "capturedAt": "2026-10-15T17:23:47.800Z"
+  },
+  "command": "node bench.mjs --target ollama --model lfm2.5:24b --phases prefill,generation,concurrent,agentic --no-live",
+  "reasoning": "server default; no override",
+  "agenticAttemptsPerRun": 1,
+  "functionalCorrectnessGraded": false,
+  "notes": [
+    "Backend metadata captured after the CLI run by Studio. GPU and physical memory read from Windows CIM.",
+    "Historical comparison values transcribed from README; original raw samples are not available for every older run.",
+    "Only the new run includes the concurrency phase; compare phase times instead of whole-run time."
+  ]
+}

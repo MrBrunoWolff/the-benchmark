@@ -1,0 +1,21 @@
+{
+  "status": "setup-blocked",
+  "gradedAttempts": 0,
+  "successRate": null,
+  "tasks": [
+    "money-split",
+    "csv-parser",
+    "ticket-triage"
+  ],
+  "harborVersion": "0.24.0",
+  "reason": "Docker Desktop Ubuntu integration is unavailable; the Pi image has not been built. Automatic approval review rejected enabling Ubuntu integration because it grants access to the Docker daemon. Explicit approval is required.",
+  "requestedConfig": {
+    "model": "lfm2.5:24b",
+    "repeats": 1,
+    "maxTurns": 24,
+    "maxTokens": 4096,
+    "contextWindow": 131072,
+    "timeout": 600,
+    "reasoning": "none"
+  }
+}

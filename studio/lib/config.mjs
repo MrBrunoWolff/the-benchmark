@@ -3,7 +3,7 @@ import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 export const ROOT = fileURLToPath(new URL('../../', import.meta.url));
 export const RUNS = resolve(process.env.BENCHMARK_DATA_DIR || join(ROOT, 'out', 'studio'));
-export const VERSIONS = Object.freeze({ studio: '0.5.0', harbor: '0.24.0', pi: '1.0.4', agentNative: '0.201.1' });
+export const VERSIONS = Object.freeze({ studio: '0.5.0', harbor: '0.24.0', pi: '1.0.4', agentNative: '0.201.1', adapter: '2' });
 export const RunSchema = z.object({
   kind: z.enum(['tasks', 'speed']),
   endpoint: z.string().default('http://localhost:11434'),
@@ -11,7 +11,7 @@ export const RunSchema = z.object({
   tasks: z.array(z.enum(['money-split', 'csv-parser', 'ticket-triage'])).min(1).default(['money-split', 'csv-parser', 'ticket-triage']),
   repeats: z.number().int().min(1).max(10).default(1),
   maxTurns: z.number().int().min(1).max(100).default(24),
-  maxTokens: z.number().int().min(256).max(16384).default(4096),
+  maxTokens: z.number().int().min(256).max(32768).default(4096),
   contextWindow: z.number().int().min(4096).max(262144).default(131072),
   timeout: z.number().int().min(30).max(3600).default(600),
   reasoning: z.enum(['default', 'none', 'low', 'medium', 'high']).default('none'),

@@ -4,10 +4,186 @@
 
 ## Results
 
-Four full runs, all post-cache-fix, all against the current code, all with all
-three phases. They form a **2×2**: two machines — a 48 GB M5 Pro Mac and a
-7900 XT PC — each running two stacks, `qwen/qwen3.8-27b` on **LM Studio** and
-`muse-glimmer:30b` on **Ollama**.
+Five tested configurations now cover two machines and three model stacks. The
+latest is **LFM2.5 24B on the Ryzen / RX 7900 XT**, tested on 2026-10-15 with
+all four CLI phases and repeated through Studio. The earlier four configurations
+form the historical **2×2** below: a 48 GB M5 Pro Mac and a 7900 XT PC, each
+running `qwen/qwen3.8-27b` on **LM Studio** and `muse-glimmer:30b` on **Ollama**.
+Those historical runs cover prefill, generation and agentic coding.
+
+| Machine · model · backend | Prefill, largest default prompt (tok/s) ↑ | Generation (tok/s) ↑ | Agentic time (s) ↓ |
+| --- | ---: | ---: | ---: |
+| M5 Pro · qwen 27B · LM Studio | 414.3 | 17.13 | 134.6 |
+| M5 Pro · glimmer 30B · Ollama | 442.7 | 33.82 | 68.6 |
+| Ryzen / 7900 XT · qwen 27B · LM Studio | 493.6 | 35.63 | 204.0 |
+| Ryzen / 7900 XT · glimmer 30B · Ollama | 779.0 | 32.27 | 86.9 |
+| Ryzen / 7900 XT · LFM2.5 24B · Ollama | **3,364.0** | **152.52** | **22.7** |
+
+![Prefill, generation and agentic time for the five tested configurations](../results/comparison.svg)
+
+These are observed **stack comparisons**: model architecture, tokenizer,
+quantization, server version and reasoning settings differ. The largest prompt
+is requested as approximately 8k tokens; LFM2.5 evaluates 9,133 tokens versus
+8,264 for the PC glimmer run. Agentic completion means the model called `finish`,
+without independent functional grading. Whole-run times are not comparable:
+the new suite also includes a concurrency sweep.
+
+[Archived samples, hardware metadata and chart data](../results/README.md) keep the
+new results available outside the gitignored `out/` directory. The older values
+are transcribed from the detailed historical results below.
+
+### Desktop · Ryzen 7 5800X3D + Radeon RX 7900 XT · LFM2.5 on Ollama
+
+2026-10-15 · Ryzen 7 5800X3D (8 cores / 16 threads) · Radeon RX 7900 XT 20 GB ·
+31.9 GiB host RAM · Ubuntu / WSL2 client (15.6 GiB available to WSL) ·
+Ollama **0.40.4** · `lfm2.5:24b`, **Q4_K_M GGUF**, `lfm2moe` family ·
+131,072-token loaded context · 17.65 GB resident, entirely in VRAM.
+The exact model digest is saved in [metadata.json](../results/2026-10-15-ryzen-lfm2.5-24b/metadata.json).
+
+```bash
+node bench.mjs --target ollama --model lfm2.5:24b \
+  --phases prefill,generation,concurrent,agentic --no-live
+```
+
+Default budgets: three samples per prefill/generation row, 256 generation tokens,
+192 tokens per concurrency request, and one agentic attempt with at most 12 turns,
+4,096 tokens per turn and a 180-second turn deadline. Reasoning uses the server
+default; no override was sent.
+
+| Phase | CLI result | Studio repeat, same budgets |
+| --- | --- | --- |
+| Prefill, largest prompt | 3,364.0 tok/s, ±1.5% spread | 3,369.8 tok/s |
+| Generation | 152.52 tok/s, ±0.33% spread | 150.25 tok/s |
+| Agentic completion | 22.7 s, 5 turns, 3 files | 24.5 s, 7 turns, 3 files |
+| Whole four-phase suite | 58.6 s | 59.8 s |
+
+Both agentic attempts called `finish`, with no malformed or unknown calls and
+no stalls. The CLI used five tool calls; Studio used seven, including two file
+reads before finishing. The Studio repeat uses the same CLI through the
+UI's `startRun` action and saves its own model/runtime snapshot. Its timings are
+a second measurement, not a second kind of agent or an independent correctness score.
+
+On this PC, LFM2.5's measured generation rate is **4.73×** the earlier glimmer
+rate and **4.28×** qwen's. Agentic completion is **3.82×** faster than glimmer
+and **8.98×** faster than qwen. Prefill at the largest default prompt is **4.32×**
+glimmer's, although the exact token counts differ. Ollama changed from 0.32.14
+in the earlier PC glimmer run to 0.40.4 here, so the difference cannot be
+assigned to the model alone. LFM2.5 has not been tested on the Mac.
+
+| Requests in flight | Streaming overlap | Aggregate tok/s | Median TTFT (ms) | Maximum TTFT (ms) |
+| ---: | ---: | ---: | ---: | ---: |
+| 1 | 1.0 | 145.1 | 79.5 | 79.5 |
+| 2 | 1.0 | 144.6 | 740.2 | 1,395.1 |
+| 4 | 1.0 | 142.6 | 2,100.7 | 4,104.9 |
+| 8 | 1.0 | 143.3 | 4,806.0 | 9,461.4 |
+
+![Flat throughput and increasing queue latency in the LFM2.5 concurrency sweep](../results/ryzen-lfm2.5-concurrency.svg)
+
+**This server serialized requests.** Eight client slots did not produce eight
+simultaneous streams. Studio reproduced the same overlap of 1.0. A new run with
+Ollama parallel slots enabled would be a separate serving configuration; these
+results preserve the server as it was configured.
+
+The nine-task SVG gallery was also run, first with server-default reasoning and
+then with `--reasoning none`. Both runs fell back to nine generated instructions
+because the planner returned no usable JSON. Each request exhausted its 900-token
+budget with **zero visible content**, so neither report contains a rendered SVG.
+Aggregate output was 144.1 / 145.5 tok/s with streaming overlap 1.0 in both runs.
+The CLI's “9/9 produced output” counts token production, not usable artwork.
+Even a separate native Ollama `think: false` probe still returned thinking with
+empty content for this model; requesting no reasoning did not resolve this run.
+
+#### Independently verified tasks · Studio on WSL2
+
+After enabling Docker Desktop's Ubuntu integration and building the pinned Pi
+image, the initial 4,096-token three-task suite was launched through the Studio browser UI.
+**1/3 passed (33.3%)**, all three attempts were independently graded, and there
+were **zero setup or execution errors**. Harbor 0.24.0 / Pi 1.0.4 / Docker Desktop
+29.8.0; the model digest and loaded 131,072-token context match the speed run.
+
+| Task | Verified outcome | Agent time | Observation |
+| --- | --- | ---: | --- |
+| Exact bill splitting | **Pass** | 26.2 s | Saved implementation passed every functional check. |
+| CSV parser | Fail | 42.8 s | Hit the 4,096-token output limit while thinking, before any edit; original broken file remained. |
+| Support ticket routing | Fail | 25.6 s | Wrote the JSON artifact, but routed two tickets to `other` instead of `sales` / `billing`. |
+
+Each task used one fresh attempt, at most 24 turns, 4,096 output tokens per turn,
+a 600-second task deadline and temperature zero. `reasoning: none` was requested;
+the server still returned thinking. No trial retries or budget changes were made.
+Total wall time was **170.1 s**, including setup and verification; median agent
+time was **26.2 s**, with 24,022 input and 9,435 output tokens across the suite.
+The ticket agent also encountered a missing `python3` command and continued with
+Node; its final classification errors determined the failed grade.
+
+The earlier tip-calculator `finish` remains a tool-loop result. This separate
+three-task smoke suite measures saved artifacts with independent checks; it is
+too small to establish broad coding quality or compare quality with the older
+models, which did not run these tasks here.
+
+[Verified run, transcripts, artifacts and verifier logs](../results/README.md) ·
+[Studio screenshot](../results/2026-10-15-ryzen-lfm2.5-24b/verified-studio.png).
+
+#### Output-budget follow-ups
+
+The unchanged suite was repeated with **8,192** and then **16,384 output tokens
+per turn**, both with a **900-second task deadline**, keeping 24 turns,
+temperature zero, the model digest, harness and task hashes unchanged. The
+original run remains the baseline.
+
+| Output tokens / turn · task deadline | Bill splitting | CSV parser | Ticket routing | Passed / graded | Wall time |
+| --- | --- | --- | --- | ---: | ---: |
+| 4,096 · 600 s | Pass (26.2 s) | Fail (42.8 s) | Fail (25.6 s) | 1/3 | 170.1 s |
+| 8,192 · 900 s | Pass (33.0 s) | Fail (94.5 s) | Fail (22.7 s) | 1/3 | 218.2 s |
+| 16,384 · 900 s | Pass (30.2 s) | Turn-cap error, ungraded (726.0 s) | Fail (24.1 s) | 1/2, plus 1 ungraded | 836.4 s |
+| 32,768 · 900 s · adapter 2 | Pass (27.4 s) | Fail (647.7 s) | Fail (19.8 s) | 1/3 | 762.4 s |
+
+At 8,192 tokens the CSV agent again exhausted its output budget before any
+write. Ticket routing corrected the pricing question but still sent the refund
+policy question to `other` rather than `billing`. The 4,096- and 8,192-token runs
+both finished with all three attempts graded and no setup or execution errors. Agent seconds exclude
+setup and verification. One attempt per configuration does not establish repeat
+reliability or isolate budget effects from run-to-run variation.
+
+At 16,384 tokens the CSV agent made its first write after 14,850 output tokens,
+then iterated through local test failures until reaching the **24-turn cap**.
+The harness surfaced the intentional abort as a `ModelRequestError` and skipped
+formal verification. A separate read-only, no-network check of the archived file
+with the unchanged verifier tests also failed: `"hello, world",x` became three
+fields instead of two. This diagnostic does not replace the original ungraded
+trial. Ticket routing again misclassified the refund-policy question as `other`.
+The run had one execution error and zero setup errors.
+
+Studio displays **50%** for the 16,384-token run because its success denominator
+contains only the **two graded attempts**. Only one of the three requested tasks
+passed; this is not an improvement over the earlier runs. Agent output across
+all tasks rose from 9,435 tokens at 4,096 to 13,911 at 8,192 and **60,997** at
+16,384. The inspected [Ollama template](../results/2026-10-15-ryzen-lfm2.5-24b/ollama-template.jinja)
+opens `<think>` for each new assistant reply, consistent with reasoning persisting
+despite the off request. No template, instructions, or grader was changed.
+
+The **32,768-token follow-up** uses adapter revision 2, which forwards explicit
+reasoning requests, records observed thinking and lets intentional turn-cap stops
+reach the verifier. A separate real Docker check confirmed that capped artifacts
+are graded; old run outcomes remain unchanged. This is a separate harness
+experiment, not a pure output-budget comparison.
+
+All three 32,768-token attempts were independently graded: **1 passed, 2 failed,
+zero setup or execution errors**. CSV finished naturally after 12 turns without
+hitting either budget, but dropped a trailing empty field: `a,,` became
+`[["a", ""]]` instead of `[["a", "", ""]]`. It consumed **44,438 output tokens**
+across turns and **647.7 seconds**. Ticket routing sent both the pricing question
+and refund-policy question to `other`, rather than `sales` and `billing`.
+Suite output totaled **49,091 tokens** over **762.4 seconds** wall time.
+Direct native and compatible API probes also returned thinking with off requested,
+without Pi involved. The model template was left unchanged. This attempt gives
+no evidence that increasing output to 128k would fix these functional failures;
+the loaded 128k context already has to accommodate both inputs and outputs.
+
+![Independent task grades and agent times across output budgets](../results/verified-budget-comparison.svg)
+
+[Budget comparison data and archived attempts](../results/README.md).
+
+### Historical four-run comparison
 
 That grid is what makes the numbers worth reading. Holding the stack and swapping
 the machine isolates hardware; holding the machine and swapping the stack isolates

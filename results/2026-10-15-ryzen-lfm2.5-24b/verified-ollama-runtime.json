@@ -1,0 +1,24 @@
+{
+  "models": [
+    {
+      "name": "lfm2.5:24b",
+      "model": "lfm2.5:24b",
+      "size": 17649578802,
+      "digest": "00a755688d0f0e0848bc967f84f28151a4d09a9a5e69c3750ef97a4e21a58fc8",
+      "details": {
+        "parent_model": "",
+        "format": "gguf",
+        "family": "lfm2moe",
+        "families": [
+          "lfm2moe"
+        ],
+        "parameter_size": "24.0B",
+        "quantization_level": "Q4_K_M"
+      },
+      "expires_at": "2026-10-15T15:15:49.7182964-03:00",
+      "size_vram": 17649578802,
+      "context_length": 131072,
+      "runner": "llamacpp"
+    }
+  ]
+}

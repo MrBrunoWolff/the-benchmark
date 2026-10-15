@@ -1,0 +1,755 @@
+{
+  "id": "49efc877-e36a-4153-9346-8cade0d3cfb5",
+  "status": "completed",
+  "createdAt": "2026-10-15T17:23:47.801Z",
+  "config": {
+    "kind": "speed",
+    "endpoint": "http://localhost:11434",
+    "model": "lfm2.5:24b",
+    "tasks": [
+      "money-split",
+      "csv-parser",
+      "ticket-triage"
+    ],
+    "repeats": 3,
+    "maxTurns": 12,
+    "maxTokens": 4096,
+    "contextWindow": 131072,
+    "timeout": 180,
+    "reasoning": "default",
+    "temperature": 0,
+    "phases": [
+      "prefill",
+      "generation",
+      "concurrent",
+      "agentic"
+    ],
+    "sizes": [
+      256,
+      2048,
+      8192
+    ],
+    "depths": [
+      0
+    ],
+    "concurrency": [
+      1,
+      2,
+      4,
+      8
+    ],
+    "genTokens": 256
+  },
+  "backend": {
+    "serverVersion": "0.40.4",
+    "model": {
+      "name": "lfm2.5:24b",
+      "model": "lfm2.5:24b",
+      "size": 17649578802,
+      "digest": "00a755688d0f0e0848bc967f84f28151a4d09a9a5e69c3750ef97a4e21a58fc8",
+      "details": {
+        "parent_model": "",
+        "format": "gguf",
+        "family": "lfm2moe",
+        "families": [
+          "lfm2moe"
+        ],
+        "parameter_size": "24.0B",
+        "quantization_level": "Q4_K_M"
+      },
+      "expires_at": "2026-10-15T14:27:19.9968891-03:00",
+      "size_vram": 17649578802,
+      "context_length": 131072,
+      "runner": "llamacpp"
+    },
+    "capturedAt": "2026-10-15T17:23:47.800Z"
+  },
+  "hardware": {
+    "platform": "linux",
+    "architecture": "x64",
+    "cpu": "AMD Ryzen 7 5800X3D 8-Core Processor",
+    "cpuCount": 16,
+    "memoryBytes": 16724680704
+  },
+  "versions": {
+    "studio": "0.4.0",
+    "harbor": "0.24.0",
+    "pi": "1.0.4",
+    "agentNative": "0.201.1"
+  },
+  "suite": "local-v1@1.0.0",
+  "taskHashes": {
+    "money-split": "b9c9324aeb54bb22369f19c947d96ac260287e83c27bce724fb462652b7018fb",
+    "csv-parser": "dcf8dbbe42165ce5c17e3ea28ea5af909b3b3eb3b0756bc75bcee245d97ef280",
+    "ticket-triage": "51ad9888102193799c02d52f988735fd385eae9cfe58a22b36b26407a343a0a9"
+  },
+  "trials": [],
+  "summary": null,
+  "startedAt": "2026-10-15T17:23:47.808Z",
+  "speed": {
+    "target": "custom",
+    "base": "http://localhost:11434",
+    "model": "lfm2.5:24b",
+    "runs": 3,
+    "depths": [
+      0
+    ],
+    "concurrency": [
+      1,
+      2,
+      4,
+      8
+    ],
+    "concTokens": 192,
+    "scenario": "bench",
+    "latencyMode": "generation",
+    "latencyMs": 67.85162300000002,
+    "totalS": 59.764211335,
+    "timings": [
+      {
+        "label": "Prompt processing",
+        "seconds": 9.903729579999998
+      },
+      {
+        "label": "Generation",
+        "seconds": 5.383846168
+      },
+      {
+        "label": "Concurrency",
+        "seconds": 19.610085288
+      },
+      {
+        "label": "Agentic coding",
+        "seconds": 24.486521717000002
+      }
+    ],
+    "results": [
+      {
+        "phase": "prefill",
+        "size": 256,
+        "promptTokens": 312,
+        "ttftMs": 113.00477999999998,
+        "estPptMs": 45.153156999999965,
+        "prefillTps": 2760.945156479222,
+        "estTps": 6909.8158518572745,
+        "spreadPct": 4.104713665113597,
+        "seconds": 0.34784178299999996,
+        "raw": [
+          {
+            "ttftMs": 111.90073100000001,
+            "totalMs": 112.23282799999998,
+            "promptTokens": 312,
+            "outTokens": 1,
+            "reasoningTokens": 0,
+            "approximate": false,
+            "singleChunk": true,
+            "prefillTps": 2788.1855391990243,
+            "genTps": null,
+            "peakTps": null,
+            "content": "",
+            "toolCalls": [],
+            "finishReason": "length"
+          },
+          {
+            "ttftMs": 121.80231099999997,
+            "totalMs": 122.01765000000006,
+            "promptTokens": 312,
+            "outTokens": 1,
+            "reasoningTokens": 0,
+            "approximate": false,
+            "singleChunk": true,
+            "prefillTps": 2561.527752950435,
+            "genTps": null,
+            "peakTps": null,
+            "content": "",
+            "toolCalls": [],
+            "finishReason": "length"
+          },
+          {
+            "ttftMs": 113.00477999999998,
+            "totalMs": 113.235278,
+            "promptTokens": 312,
+            "outTokens": 1,
+            "reasoningTokens": 0,
+            "approximate": false,
+            "singleChunk": true,
+            "prefillTps": 2760.945156479222,
+            "genTps": null,
+            "peakTps": null,
+            "content": "",
+            "toolCalls": [],
+            "finishReason": "length"
+          }
+        ]
+      },
+      {
+        "phase": "prefill",
+        "size": 2048,
+        "promptTokens": 2304,
+        "ttftMs": 485.3060760000001,
+        "estPptMs": 417.45445300000006,
+        "prefillTps": 4747.519377853409,
+        "estTps": 5519.164985407401,
+        "spreadPct": 2.9114727813491266,
+        "seconds": 1.435126976,
+        "raw": [
+          {
+            "ttftMs": 460.692135,
+            "totalMs": 460.859193,
+            "promptTokens": 2304,
+            "outTokens": 1,
+            "reasoningTokens": 0,
+            "approximate": false,
+            "singleChunk": true,
+            "prefillTps": 5001.170684192383,
+            "genTps": null,
+            "peakTps": null,
+            "content": "",
+            "toolCalls": [],
+            "finishReason": "length"
+          },
+          {
+            "ttftMs": 487.64740700000016,
+            "totalMs": 488.00872400000003,
+            "promptTokens": 2304,
+            "outTokens": 1,
+            "reasoningTokens": 0,
+            "approximate": false,
+            "singleChunk": true,
+            "prefillTps": 4724.7252152414285,
+            "genTps": null,
+            "peakTps": null,
+            "content": "",
+            "toolCalls": [],
+            "finishReason": "length"
+          },
+          {
+            "ttftMs": 485.3060760000001,
+            "totalMs": 485.54603399999974,
+            "promptTokens": 2304,
+            "outTokens": 1,
+            "reasoningTokens": 0,
+            "approximate": false,
+            "singleChunk": true,
+            "prefillTps": 4747.519377853409,
+            "genTps": null,
+            "peakTps": null,
+            "content": "",
+            "toolCalls": [],
+            "finishReason": "length"
+          }
+        ]
+      },
+      {
+        "phase": "prefill",
+        "size": 8192,
+        "promptTokens": 9131,
+        "ttftMs": 2709.669527,
+        "estPptMs": 2641.817904,
+        "prefillTps": 3369.78362454013,
+        "estTps": 3456.3320909343042,
+        "spreadPct": 0.9679400462502534,
+        "seconds": 8.120215196,
+        "raw": [
+          {
+            "ttftMs": 2677.9993200000004,
+            "totalMs": 2678.156579,
+            "promptTokens": 9131,
+            "outTokens": 1,
+            "reasoningTokens": 0,
+            "approximate": false,
+            "singleChunk": true,
+            "prefillTps": 3409.6349210424737,
+            "genTps": null,
+            "peakTps": null,
+            "content": "",
+            "toolCalls": [],
+            "finishReason": "length"
+          },
+          {
+            "ttftMs": 2709.669527,
+            "totalMs": 2709.885295,
+            "promptTokens": 9131,
+            "outTokens": 1,
+            "reasoningTokens": 0,
+            "approximate": false,
+            "singleChunk": true,
+            "prefillTps": 3369.78362454013,
+            "genTps": null,
+            "peakTps": null,
+            "content": "",
+            "toolCalls": [],
+            "finishReason": "length"
+          },
+          {
+            "ttftMs": 2730.2356579999996,
+            "totalMs": 2730.481555999999,
+            "promptTokens": 9131,
+            "outTokens": 1,
+            "reasoningTokens": 0,
+            "approximate": false,
+            "singleChunk": true,
+            "prefillTps": 3344.3999506946593,
+            "genTps": null,
+            "peakTps": null,
+            "content": "",
+            "toolCalls": [],
+            "finishReason": "length"
+          }
+        ]
+      },
+      {
+        "phase": "generation",
+        "depth": 0,
+        "ctxTokens": 107,
+        "outTokens": 256,
+        "ttftMs": 88.074971,
+        "genTps": 150.24842534229506,
+        "spreadPct": 0.4834718766172864,
+        "peakTps": 153,
+        "reasoningTokens": 0,
+        "seconds": 5.383676749,
+        "raw": [
+          {
+            "ttftMs": 124.00136600000042,
+            "totalMs": 1825.3400140000012,
+            "promptTokens": 107,
+            "outTokens": 256,
+            "reasoningTokens": 0,
+            "approximate": false,
+            "singleChunk": false,
+            "prefillTps": 862.8937200578874,
+            "genTps": 149.88197693608137,
+            "peakTps": 152,
+            "content": "",
+            "toolCalls": [],
+            "finishReason": "length"
+          },
+          {
+            "ttftMs": 88.074971,
+            "totalMs": 1785.2641390000008,
+            "promptTokens": 107,
+            "outTokens": 256,
+            "reasoningTokens": 0,
+            "approximate": false,
+            "singleChunk": false,
+            "prefillTps": 1214.8740872137216,
+            "genTps": 150.24842534229506,
+            "peakTps": 153,
+            "content": "",
+            "toolCalls": [],
+            "finishReason": "length"
+          },
+          {
+            "ttftMs": 87.77343400000063,
+            "totalMs": 1772.7791890000008,
+            "promptTokens": 107,
+            "outTokens": 256,
+            "reasoningTokens": 0,
+            "approximate": false,
+            "singleChunk": false,
+            "prefillTps": 1219.0476676576106,
+            "genTps": 151.334794699262,
+            "peakTps": 154,
+            "content": "",
+            "toolCalls": [],
+            "finishReason": "length"
+          }
+        ]
+      },
+      {
+        "phase": "concurrent",
+        "slots": 1,
+        "aggTps": 144.05142920524196,
+        "outTotal": 192,
+        "overlap": 1,
+        "slotTps": 152.72176015356342,
+        "ttftMs": 81.93201999999837,
+        "ttftMaxMs": 81.93201999999837,
+        "scale": 1,
+        "effPct": 100,
+        "failed": 0,
+        "seconds": 1.3328573070000003,
+        "raw": [
+          {
+            "ttftMs": 81.93201999999837,
+            "totalMs": 1332.5723990000006,
+            "promptTokens": 107,
+            "outTokens": 192,
+            "reasoningTokens": 0,
+            "approximate": false,
+            "singleChunk": false,
+            "prefillTps": 1305.960722071812,
+            "genTps": 152.72176015356342,
+            "peakTps": 155,
+            "content": "",
+            "toolCalls": [],
+            "finishReason": "length"
+          }
+        ]
+      },
+      {
+        "phase": "concurrent",
+        "slots": 2,
+        "aggTps": 146.59764682495725,
+        "outTotal": 384,
+        "overlap": 1,
+        "slotTps": 154.2604601203923,
+        "ttftMs": 731.3035670000027,
+        "ttftMaxMs": 1382.8767260000022,
+        "scale": 1.0176757539565087,
+        "effPct": 50.88378769782543,
+        "failed": 0,
+        "seconds": 2.6194144879999985,
+        "raw": [
+          {
+            "ttftMs": 79.73040800000308,
+            "totalMs": 1319.9153710000028,
+            "promptTokens": 107,
+            "outTokens": 192,
+            "reasoningTokens": 0,
+            "approximate": false,
+            "singleChunk": false,
+            "prefillTps": 1342.0224815605593,
+            "genTps": 154.00928546817096,
+            "peakTps": 156,
+            "content": "",
+            "toolCalls": [],
+            "finishReason": "length"
+          },
+          {
+            "ttftMs": 1382.8767260000022,
+            "totalMs": 2619.0295910000023,
+            "promptTokens": 107,
+            "outTokens": 192,
+            "reasoningTokens": 0,
+            "approximate": false,
+            "singleChunk": false,
+            "prefillTps": 77.37493732322733,
+            "genTps": 154.51163477261366,
+            "peakTps": 156,
+            "content": "",
+            "toolCalls": [],
+            "finishReason": "length"
+          }
+        ]
+      },
+      {
+        "phase": "concurrent",
+        "slots": 4,
+        "aggTps": 147.07505397018213,
+        "outTotal": 768,
+        "overlap": 1,
+        "slotTps": 154.8572853680895,
+        "ttftMs": 2039.387573,
+        "ttftMaxMs": 3982.0074559999994,
+        "scale": 1.020989897716545,
+        "effPct": 25.524747442913625,
+        "failed": 0,
+        "seconds": 5.221823682999998,
+        "raw": [
+          {
+            "ttftMs": 2686.037110000001,
+            "totalMs": 3918.767164000001,
+            "promptTokens": 107,
+            "outTokens": 192,
+            "reasoningTokens": 0,
+            "approximate": false,
+            "singleChunk": false,
+            "prefillTps": 39.835637267126195,
+            "genTps": 154.9406533735731,
+            "peakTps": 156,
+            "content": "",
+            "toolCalls": [],
+            "finishReason": "length"
+          },
+          {
+            "ttftMs": 95.56985200000054,
+            "totalMs": 1329.069569000003,
+            "promptTokens": 107,
+            "outTokens": 192,
+            "reasoningTokens": 0,
+            "approximate": false,
+            "singleChunk": false,
+            "prefillTps": 1119.5999340879946,
+            "genTps": 154.84397553372088,
+            "peakTps": 157,
+            "content": "",
+            "toolCalls": [],
+            "finishReason": "length"
+          },
+          {
+            "ttftMs": 1392.7380359999988,
+            "totalMs": 2626.0257349999993,
+            "promptTokens": 107,
+            "outTokens": 192,
+            "reasoningTokens": 0,
+            "approximate": false,
+            "singleChunk": false,
+            "prefillTps": 76.82708250527028,
+            "genTps": 154.87059520245808,
+            "peakTps": 157,
+            "content": "",
+            "toolCalls": [],
+            "finishReason": "length"
+          },
+          {
+            "ttftMs": 3982.0074559999994,
+            "totalMs": 5221.176697999999,
+            "promptTokens": 107,
+            "outTokens": 192,
+            "reasoningTokens": 0,
+            "approximate": false,
+            "singleChunk": false,
+            "prefillTps": 26.870868822401324,
+            "genTps": 154.13552364463868,
+            "peakTps": 156,
+            "content": "",
+            "toolCalls": [],
+            "finishReason": "length"
+          }
+        ]
+      },
+      {
+        "phase": "concurrent",
+        "slots": 8,
+        "aggTps": 147.20342809428726,
+        "outTotal": 1536,
+        "overlap": 1,
+        "slotTps": 154.86056940930865,
+        "ttftMs": 4659.144953499999,
+        "ttftMaxMs": 9193.261726999997,
+        "scale": 1.0218810664110412,
+        "effPct": 12.773513330138014,
+        "failed": 0,
+        "seconds": 10.434539602000001,
+        "raw": [
+          {
+            "ttftMs": 109.75828699999693,
+            "totalMs": 1343.1506539999973,
+            "promptTokens": 107,
+            "outTokens": 192,
+            "reasoningTokens": 0,
+            "approximate": false,
+            "singleChunk": false,
+            "prefillTps": 974.8694419766499,
+            "genTps": 154.8574525919698,
+            "peakTps": 157,
+            "content": "",
+            "toolCalls": [],
+            "finishReason": "length"
+          },
+          {
+            "ttftMs": 1406.9984320000003,
+            "totalMs": 2648.0675470000024,
+            "promptTokens": 107,
+            "outTokens": 192,
+            "reasoningTokens": 0,
+            "approximate": false,
+            "singleChunk": false,
+            "prefillTps": 76.04841453014495,
+            "genTps": 153.89956747090565,
+            "peakTps": 156,
+            "content": "",
+            "toolCalls": [],
+            "finishReason": "length"
+          },
+          {
+            "ttftMs": 2713.2485530000013,
+            "totalMs": 3945.434290000001,
+            "promptTokens": 107,
+            "outTokens": 192,
+            "reasoningTokens": 0,
+            "approximate": false,
+            "singleChunk": false,
+            "prefillTps": 39.436121648970044,
+            "genTps": 155.00909827525462,
+            "peakTps": 157,
+            "content": "",
+            "toolCalls": [],
+            "finishReason": "length"
+          },
+          {
+            "ttftMs": 4010.438785999999,
+            "totalMs": 5242.859553999999,
+            "promptTokens": 107,
+            "outTokens": 192,
+            "reasoningTokens": 0,
+            "approximate": false,
+            "singleChunk": false,
+            "prefillTps": 26.68037232572287,
+            "genTps": 154.97953698878274,
+            "peakTps": 156,
+            "content": "",
+            "toolCalls": [],
+            "finishReason": "length"
+          },
+          {
+            "ttftMs": 7897.643957,
+            "totalMs": 9130.986677,
+            "promptTokens": 107,
+            "outTokens": 192,
+            "reasoningTokens": 0,
+            "approximate": false,
+            "singleChunk": false,
+            "prefillTps": 13.548344364797755,
+            "genTps": 154.86368622664747,
+            "peakTps": 156,
+            "content": "",
+            "toolCalls": [],
+            "finishReason": "length"
+          },
+          {
+            "ttftMs": 5307.851121,
+            "totalMs": 6538.277714,
+            "promptTokens": 107,
+            "outTokens": 192,
+            "reasoningTokens": 0,
+            "approximate": false,
+            "singleChunk": false,
+            "prefillTps": 20.158817110876537,
+            "genTps": 155.23071517359506,
+            "peakTps": 157,
+            "content": "",
+            "toolCalls": [],
+            "finishReason": "length"
+          },
+          {
+            "ttftMs": 6601.047298000001,
+            "totalMs": 7836.097944000001,
+            "promptTokens": 107,
+            "outTokens": 192,
+            "reasoningTokens": 0,
+            "approximate": false,
+            "singleChunk": false,
+            "prefillTps": 16.20954905631703,
+            "genTps": 154.64952843723304,
+            "peakTps": 156,
+            "content": "",
+            "toolCalls": [],
+            "finishReason": "length"
+          },
+          {
+            "ttftMs": 9193.261726999997,
+            "totalMs": 10433.067223999999,
+            "promptTokens": 107,
+            "outTokens": 192,
+            "reasoningTokens": 0,
+            "approximate": false,
+            "singleChunk": false,
+            "prefillTps": 11.638959400638853,
+            "genTps": 154.05642293260442,
+            "peakTps": 155,
+            "content": "",
+            "toolCalls": [],
+            "finishReason": "length"
+          }
+        ]
+      },
+      {
+        "phase": "agentic",
+        "wallS": 24.486521717000002,
+        "turns": [
+          {
+            "turn": 1,
+            "ctxTok": 576,
+            "ttftMs": 66.04302900000039,
+            "outTok": 1397,
+            "genTps": 137.22496083547762,
+            "reasoningTok": 0,
+            "seconds": 10.239119352000001,
+            "singleChunk": false,
+            "action": "plan(4 steps)"
+          },
+          {
+            "turn": 2,
+            "ctxTok": 733,
+            "ttftMs": 80.82792099999642,
+            "outTok": 543,
+            "genTps": 141.75837700237832,
+            "reasoningTok": 0,
+            "seconds": 3.9042351259999997,
+            "singleChunk": false,
+            "action": "write_file(index.html, 1.0 KB)"
+          },
+          {
+            "turn": 3,
+            "ctxTok": 1155,
+            "ttftMs": 150.85329199999978,
+            "outTok": 214,
+            "genTps": 137.86821648268523,
+            "reasoningTok": 0,
+            "seconds": 1.6958069109999996,
+            "singleChunk": false,
+            "action": "write_file(styles.css, 0.4 KB)"
+          },
+          {
+            "turn": 4,
+            "ctxTok": 1377,
+            "ttftMs": 119.90921899999375,
+            "outTok": 623,
+            "genTps": 130.91371361964937,
+            "reasoningTok": 0,
+            "seconds": 4.871130330999993,
+            "singleChunk": false,
+            "action": "write_file(app.js, 0.9 KB)"
+          },
+          {
+            "turn": 5,
+            "ctxTok": 1658,
+            "ttftMs": 139.4849419999955,
+            "outTok": 173,
+            "genTps": 126.53401834309345,
+            "reasoningTok": 0,
+            "seconds": 1.4988031889999984,
+            "singleChunk": false,
+            "action": "read_file(index.html)"
+          },
+          {
+            "turn": 6,
+            "ctxTok": 2028,
+            "ttftMs": 169.61491099999694,
+            "outTok": 50,
+            "genTps": 122.49143968573836,
+            "reasoningTok": 0,
+            "seconds": 0.5696428649999944,
+            "singleChunk": false,
+            "action": "read_file(styles.css)"
+          },
+          {
+            "turn": 7,
+            "ctxTok": 2210,
+            "ttftMs": 122.92871500000183,
+            "outTok": 194,
+            "genTps": 121.92326460156502,
+            "reasoningTok": 0,
+            "seconds": 1.7058915780000026,
+            "singleChunk": false,
+            "action": "finish"
+          }
+        ],
+        "toolCalls": 7,
+        "malformed": 0,
+        "unknown": 0,
+        "noToolTurns": 0,
+        "cappedTurns": 0,
+        "stalledTurns": 0,
+        "plan": [
+          "Create index.html: HTML structure with inputs for bill amount, tip percentage, number of people, and output displays for tip amount, total, and per-person share; link styles.css and app.js.",
+          "Create styles.css: Basic styling for layout, inputs, and output values to make the app visually clear.",
+          "Create app.js: JavaScript that listens for input changes, computes tip amount (bill * tip% / 100), total (bill + tip), and per-person share (total / people), and updates the DOM live.",
+          "Verify all three files are self-contained, keyboard accessible, and work offline."
+        ],
+        "summary": "Built a self-contained tip calculator with exactly three files: index.html (HTML form with bill amount, tip percentage, and number of people inputs plus live result displays), styles.css (clean styling for layout and readability), and app.js (JavaScript that computes tip amount, total, and per-person share on button click or input change). The app is keyboard accessible via standard form controls, works entirely offline without any CDNs or frameworks, and updates the results in real time as inputs are entered.",
+        "files": [
+          "index.html",
+          "styles.css",
+          "app.js"
+        ]
+      }
+    ]
+  },
+  "exitCode": 0,
+  "finishedAt": "2026-10-15T17:24:47.614Z",
+  "seconds": 59.806
+}

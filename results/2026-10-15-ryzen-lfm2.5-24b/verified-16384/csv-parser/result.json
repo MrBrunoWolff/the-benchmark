@@ -1,0 +1,136 @@
+{
+    "id": "73726b6e-2aa7-4bea-a539-1d881eb106ba",
+    "task_name": "csv-parser",
+    "trial_name": "csv-parser__5FBHEJS",
+    "trial_uri": "file:///home/mrbru/personal/the-benchmark/out/studio/de9b545f-7790-4193-a5cf-ff0a638c2a91/job/csv-parser__5FBHEJS",
+    "task_id": {
+        "path": "/home/mrbru/personal/the-benchmark/tasks/local-v1/csv-parser"
+    },
+    "source": null,
+    "task_checksum": "c8844e86ef37013fb8b83f01bef036c3235a228e96d37b6cc28d5e3fddfd2f5f",
+    "config": {
+        "task": {
+            "path": "/home/mrbru/personal/the-benchmark/tasks/local-v1/csv-parser",
+            "git_url": null,
+            "git_commit_id": null,
+            "name": null,
+            "ref": null,
+            "overwrite": false,
+            "download_dir": null,
+            "source": null
+        },
+        "trial_name": "csv-parser__5FBHEJS",
+        "trials_dir": "/home/mrbru/personal/the-benchmark/out/studio/de9b545f-7790-4193-a5cf-ff0a638c2a91/job",
+        "install_only": false,
+        "timeout_multiplier": 1.0,
+        "agent_timeout_multiplier": null,
+        "verifier_timeout_multiplier": null,
+        "agent_setup_timeout_multiplier": null,
+        "environment_build_timeout_multiplier": null,
+        "agent": {
+            "name": null,
+            "import_path": "benchmark_harness:BenchmarkPi",
+            "model_name": "openai/lfm2.5:24b",
+            "n_concurrent": null,
+            "concurrency_group": null,
+            "skills": [],
+            "override_timeout_sec": 900.0,
+            "override_setup_timeout_sec": null,
+            "max_timeout_sec": null,
+            "resume_trajectory": false,
+            "load_trajectory": null,
+            "extra_allowed_hosts": [],
+            "kwargs": {
+                "version": "1.0.4",
+                "model_api": "openai-completions",
+                "max_turns": 24,
+                "max_tokens": 16384,
+                "context_window": 131072,
+                "temperature": 0,
+                "reasoning": "none"
+            },
+            "env": {
+                "OPENAI_API_KEY": "loca****ark",
+                "OPENAI_BASE_URL": "http://host.docker.internal:11434/v1"
+            },
+            "mcp_servers": []
+        },
+        "user_agent": null,
+        "environment": {
+            "type": "docker",
+            "import_path": null,
+            "force_build": false,
+            "delete": true,
+            "stream": false,
+            "cpu_enforcement_policy": "auto",
+            "memory_enforcement_policy": "auto",
+            "override_cpus": null,
+            "override_memory_mb": null,
+            "override_storage_mb": null,
+            "override_gpus": null,
+            "override_tpu": null,
+            "mounts": null,
+            "extra_docker_compose": [],
+            "kwargs": {},
+            "extra_allowed_hosts": []
+        },
+        "verifier": {
+            "override_timeout_sec": null,
+            "max_timeout_sec": null,
+            "disable": false
+        },
+        "artifacts": [],
+        "extra_instruction_paths": [],
+        "extra_instructions": [],
+        "job_id": "3f54900b-3904-4225-a0df-8ff487eac985",
+        "source_trial": null
+    },
+    "agent_info": {
+        "name": "pi",
+        "version": "1.0.4",
+        "model_info": {
+            "name": "lfm2.5:24b",
+            "provider": "openai"
+        }
+    },
+    "agent_result": {
+        "n_input_tokens": 132760,
+        "n_cache_tokens": 124260,
+        "n_output_tokens": 55375,
+        "cost_usd": null,
+        "model_usage": {
+            "benchmark-local/lfm2.5:24b": {
+                "n_input_tokens": 132760,
+                "n_cache_tokens": 124260,
+                "n_output_tokens": 55375,
+                "cost_usd": null
+            }
+        },
+        "rollout_details": null,
+        "metadata": null
+    },
+    "verifier_result": null,
+    "verifier_environment_mode": "separate",
+    "exception_info": {
+        "exception_type": "RuntimeError",
+        "exception_message": "Local model request failed: This operation was aborted",
+        "exception_traceback": "Traceback (most recent call last):\n  File \"/home/mrbru/personal/the-benchmark/.venv/lib/python3.12/site-packages/harbor/trial/trial.py\", line 500, in run\n    await self._run()\n  File \"/home/mrbru/personal/the-benchmark/.venv/lib/python3.12/site-packages/harbor/trial/single_step.py\", line 40, in _run\n    await self._run_agent()\n  File \"/home/mrbru/personal/the-benchmark/.venv/lib/python3.12/site-packages/harbor/trial/single_step.py\", line 76, in _run_agent\n    await self._run_agent_phase(\n  File \"/home/mrbru/personal/the-benchmark/.venv/lib/python3.12/site-packages/harbor/trial/trial.py\", line 651, in _run_agent_phase\n    await asyncio.wait_for(\n  File \"/home/mrbru/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/asyncio/tasks.py\", line 520, in wait_for\n    return await fut\n           ^^^^^^^^^\n  File \"/home/mrbru/personal/the-benchmark/harness/benchmark_harness.py\", line 134, in run\n    raise RuntimeError(f\"Local model request failed: {message.get('errorMessage', 'unknown error')}\")\nRuntimeError: Local model request failed: This operation was aborted\n",
+        "occurred_at": "2026-10-15T18:20:53.740021Z"
+    },
+    "started_at": "2026-10-15T18:08:41.152709Z",
+    "finished_at": "2026-10-15T18:20:58.102191Z",
+    "environment_setup": {
+        "started_at": "2026-10-15T18:08:41.153981Z",
+        "finished_at": "2026-10-15T18:08:46.441482Z"
+    },
+    "agent_setup": {
+        "started_at": "2026-10-15T18:08:46.441510Z",
+        "finished_at": "2026-10-15T18:08:47.111597Z"
+    },
+    "agent_execution": {
+        "started_at": "2026-10-15T18:08:47.111697Z",
+        "finished_at": "2026-10-15T18:20:53.121641Z"
+    },
+    "verifier": null,
+    "step_results": null
+}

@@ -1,0 +1,15 @@
+Traceback (most recent call last):
+  File "/home/mrbru/personal/the-benchmark/.venv/lib/python3.12/site-packages/harbor/trial/trial.py", line 500, in run
+    await self._run()
+  File "/home/mrbru/personal/the-benchmark/.venv/lib/python3.12/site-packages/harbor/trial/single_step.py", line 40, in _run
+    await self._run_agent()
+  File "/home/mrbru/personal/the-benchmark/.venv/lib/python3.12/site-packages/harbor/trial/single_step.py", line 76, in _run_agent
+    await self._run_agent_phase(
+  File "/home/mrbru/personal/the-benchmark/.venv/lib/python3.12/site-packages/harbor/trial/trial.py", line 651, in _run_agent_phase
+    await asyncio.wait_for(
+  File "/home/mrbru/.local/share/uv/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/asyncio/tasks.py", line 520, in wait_for
+    return await fut
+           ^^^^^^^^^
+  File "/home/mrbru/personal/the-benchmark/harness/benchmark_harness.py", line 134, in run
+    raise RuntimeError(f"Local model request failed: {message.get('errorMessage', 'unknown error')}")
+RuntimeError: Local model request failed: This operation was aborted

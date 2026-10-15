@@ -1,5 +1,6 @@
 import { readdirSync, readFileSync, lstatSync, existsSync } from 'node:fs';
 import { join, relative } from 'node:path';
+import { isBudgetAbort } from '../../harness/pi-extension.mjs';
 
 export function walkFiles(root, limit = 800, depth = 0) {
   if (!existsSync(root) || depth > 7) return [];
@@ -35,21 +36,28 @@ export function taskResults(directory) {
     let budgetExhausted = false;
     let outputBudgetExhausted = false;
     let lastStopReason = null;
+    let thinkingObserved = false;
+    let requestReasoningEffort = null;
+    let budgetTermination = null;
     const toolErrors = [];
     try {
       const transcript = readFileSync(transcriptPath, 'utf8');
-      budgetExhausted = transcript.includes('"type":"benchmark_budget"');
       for (const line of transcript.split('\n')) {
         let event; try { event = JSON.parse(line); } catch { continue; }
+        if (event?.type === 'benchmark_budget') { budgetExhausted = true; budgetTermination = event.termination ?? null; }
+        if (event?.type === 'benchmark_request') requestReasoningEffort = event.reasoningEffort ?? null;
         if (event?.type === 'message_end' && event.message?.role === 'assistant') {
           lastStopReason = event.message.stopReason ?? event.message.rawStopReason ?? null;
           if (event.message.stopReason === 'length' || event.message.rawStopReason === 'length') outputBudgetExhausted = true;
+          if (Array.isArray(event.message.content) && event.message.content.some(c => c.type === 'thinking' && typeof c.thinking === 'string' && c.thinking.trim())) thinkingObserved = true;
         }
         if (event?.type === 'tool_execution_end' && event.isError) {
           toolErrors.push({ tool: event.toolName, message: (event.result?.content || []).filter(c => c.type === 'text').map(c => c.text).join('\n').slice(0, 500) });
         }
         if (event?.type === 'message_end' && event.message?.stopReason === 'error') {
-          error = { exception_type: 'ModelRequestError', exception_message: event.message.errorMessage || 'Model request failed' };
+          if (!isBudgetAbort(event.message.errorMessage, budgetTermination)) {
+            error = { exception_type: 'ModelRequestError', exception_message: event.message.errorMessage || 'Model request failed' };
+          }
         }
       }
     } catch {}
@@ -60,7 +68,7 @@ export function taskResults(directory) {
       seconds: duration(result.agent_execution), setupSeconds: duration(result.environment_setup),
       inputTokens: result.agent_result?.n_input_tokens ?? null,
       outputTokens: result.agent_result?.n_output_tokens ?? null,
-      budgetExhausted, outputBudgetExhausted, lastStopReason, toolErrors: toolErrors.slice(-5),
+      budgetExhausted, outputBudgetExhausted, lastStopReason, thinkingObserved, requestReasoningEffort, toolErrors: toolErrors.slice(-5),
       error: error ? { type: error.exception_type, message: error.exception_message } : null,
       checksum: result.task_checksum, agentVersion: result.agent_info?.version,
       resultFile: relative(directory, file),

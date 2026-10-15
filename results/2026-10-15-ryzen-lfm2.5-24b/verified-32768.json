@@ -1,0 +1,175 @@
+{
+  "id": "6b5656a2-4e3a-4062-928d-9c74354affcb",
+  "status": "completed",
+  "createdAt": "2026-10-15T18:46:08.103Z",
+  "config": {
+    "kind": "tasks",
+    "endpoint": "http://localhost:11434",
+    "model": "lfm2.5:24b",
+    "tasks": [
+      "money-split",
+      "csv-parser",
+      "ticket-triage"
+    ],
+    "repeats": 1,
+    "maxTurns": 24,
+    "maxTokens": 32768,
+    "contextWindow": 131072,
+    "timeout": 900,
+    "reasoning": "none",
+    "temperature": 0,
+    "phases": [
+      "prefill",
+      "generation"
+    ],
+    "sizes": [
+      256,
+      2048,
+      8192
+    ],
+    "depths": [
+      0
+    ],
+    "concurrency": [
+      1,
+      2,
+      4
+    ],
+    "genTokens": 256
+  },
+  "backend": {
+    "serverVersion": "0.40.4",
+    "model": {
+      "name": "lfm2.5:24b",
+      "model": "lfm2.5:24b",
+      "size": 17649578802,
+      "digest": "00a755688d0f0e0848bc967f84f28151a4d09a9a5e69c3750ef97a4e21a58fc8",
+      "details": {
+        "parent_model": "",
+        "format": "gguf",
+        "family": "lfm2moe",
+        "families": [
+          "lfm2moe"
+        ],
+        "parameter_size": "24.0B",
+        "quantization_level": "Q4_K_M"
+      },
+      "expires_at": "2026-10-15T16:15:40.5183073-03:00",
+      "size_vram": 17649578802,
+      "context_length": 131072,
+      "runner": "llamacpp"
+    },
+    "capturedAt": "2026-10-15T18:46:08.103Z"
+  },
+  "hardware": {
+    "platform": "linux",
+    "architecture": "x64",
+    "cpu": "AMD Ryzen 7 5800X3D 8-Core Processor",
+    "cpuCount": 16,
+    "memoryBytes": 16724680704
+  },
+  "versions": {
+    "studio": "0.4.0",
+    "harbor": "0.24.0",
+    "pi": "1.0.4",
+    "agentNative": "0.201.1",
+    "adapter": "2"
+  },
+  "suite": "local-v1@1.0.0",
+  "taskHashes": {
+    "money-split": "b9c9324aeb54bb22369f19c947d96ac260287e83c27bce724fb462652b7018fb",
+    "csv-parser": "dcf8dbbe42165ce5c17e3ea28ea5af909b3b3eb3b0756bc75bcee245d97ef280",
+    "ticket-triage": "51ad9888102193799c02d52f988735fd385eae9cfe58a22b36b26407a343a0a9"
+  },
+  "trials": [
+    {
+      "id": "csv-parser__af6b7qT",
+      "task": "csv-parser",
+      "status": "failed",
+      "reward": 0,
+      "seconds": 647.69,
+      "setupSeconds": 5.382,
+      "inputTokens": 46179,
+      "outputTokens": 44438,
+      "budgetExhausted": false,
+      "outputBudgetExhausted": false,
+      "lastStopReason": "stop",
+      "thinkingObserved": true,
+      "requestReasoningEffort": "none",
+      "toolErrors": [
+        {
+          "tool": "bash",
+          "message": "Test 1: [[\"a\",\"b\",\"c\"],[\"1\",\"2\",\"3\"]]\nTest 2: []\nTest 3: [[\"a\",\"b\"],[\"1\",\"2\"]]\nTest 4: [[\"a\",\"b\",\"c\",\"d\"],[\"1\",\"e\",\"f\",\"3\"]]\nTest 5: [[\"a\",\"b\\nc\",\"d\"],[\"1\",\"e\\nf\",\"3\"]]\nfile:///app/csv.mjs:80\n      throw new SyntaxError('Unclosed quoted field');\n            ^\n\nSyntaxError: Unclosed quoted field\n    at file:///app/csv.mjs:80:13\n    at Array.map (<anonymous>)\n    at parseCSV (file:///app/csv.mjs:48:18)\n    at file:///app/test.mjs:19:39\n    at ModuleJob.run (node:internal/modules/esm/module_job:439"
+        },
+        {
+          "tool": "bash",
+          "message": "1: [[\"a\",\"b\",\"c\"],[\"1\",\"2\",\"3\"]]\n2: []\n3: [[\"a\",\"b\"],[\"1\",\"2\"]]\n4: [[\"a\",\"b\",\"c\",\"d\"],[\"1\",\"e\",\"f\",\"3\"]]\n5: [[\"a\",\"b\\nc\",\"d\"],[\"1\",\"e\\nf\",\"3\"]]\nfile:///app/csv.mjs:80\n      throw new SyntaxError('Unclosed quoted field');\n            ^\n\nSyntaxError: Unclosed quoted field\n    at file:///app/csv.mjs:80:13\n    at Array.map (<anonymous>)\n    at parseCSV (file:///app/csv.mjs:48:18)\n    at file:///app/[eval1]:9:34\n    at ModuleJob.run (node:internal/modules/esm/module_job:439:25)\n    at async node:inte"
+        },
+        {
+          "tool": "bash",
+          "message": "file:///app/csv.mjs:80\n      throw new SyntaxError('Unclosed quoted field');\n            ^\n\nSyntaxError: Unclosed quoted field\n    at file:///app/csv.mjs:80:13\n    at Array.map (<anonymous>)\n    at parseCSV (file:///app/csv.mjs:48:18)\n    at file:///app/[eval1]:3:39\n    at ModuleJob.run (node:internal/modules/esm/module_job:439:25)\n    at async node:internal/modules/esm/loader:224:26\n    at async ModuleLoader.executeModuleJob (node:internal/modules/esm/loader:221:20)\n    at async asyncRunEntryPo"
+        }
+      ],
+      "error": null,
+      "checksum": "c8844e86ef37013fb8b83f01bef036c3235a228e96d37b6cc28d5e3fddfd2f5f",
+      "agentVersion": "1.0.4",
+      "resultFile": "job/csv-parser__af6b7qT/result.json"
+    },
+    {
+      "id": "money-split__XZbZijQ",
+      "task": "money-split",
+      "status": "passed",
+      "reward": 1,
+      "seconds": 27.383,
+      "setupSeconds": 5.294,
+      "inputTokens": 9481,
+      "outputTokens": 2685,
+      "budgetExhausted": false,
+      "outputBudgetExhausted": false,
+      "lastStopReason": "stop",
+      "thinkingObserved": true,
+      "requestReasoningEffort": "none",
+      "toolErrors": [],
+      "error": null,
+      "checksum": "b339a74df700b64c979e161e32ecc579196d6914f9bb2f8ebc46e8f6edecddc2",
+      "agentVersion": "1.0.4",
+      "resultFile": "job/money-split__XZbZijQ/result.json"
+    },
+    {
+      "id": "ticket-triage__hqHXFAv",
+      "task": "ticket-triage",
+      "status": "failed",
+      "reward": 0,
+      "seconds": 19.848,
+      "setupSeconds": 5.294,
+      "inputTokens": 5522,
+      "outputTokens": 1968,
+      "budgetExhausted": false,
+      "outputBudgetExhausted": false,
+      "lastStopReason": "stop",
+      "thinkingObserved": true,
+      "requestReasoningEffort": "none",
+      "toolErrors": [],
+      "error": null,
+      "checksum": "9b82f83b47049baed8b59312f404f7016f8e74d019bb5ed12f3d227c5f89f4bf",
+      "agentVersion": "1.0.4",
+      "resultFile": "job/ticket-triage__hqHXFAv/result.json"
+    }
+  ],
+  "summary": {
+    "expected": 3,
+    "completed": 3,
+    "passed": 1,
+    "failed": 2,
+    "setupErrors": 0,
+    "errors": 0,
+    "successRate": 0.3333333333333333,
+    "medianSeconds": 27.383,
+    "inputTokens": 61182,
+    "outputTokens": 49091
+  },
+  "startedAt": "2026-10-15T18:46:08.106Z",
+  "exitCode": 0,
+  "finishedAt": "2026-10-15T18:58:50.456Z",
+  "seconds": 762.35
+}

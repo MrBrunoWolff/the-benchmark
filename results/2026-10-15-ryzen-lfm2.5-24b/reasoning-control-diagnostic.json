@@ -1,0 +1,87 @@
+{
+  "model": "lfm2.5:24b",
+  "thinkingMetadata": null,
+  "probes": [
+    {
+      "kind": "native-off",
+      "endpoint": "/api/chat",
+      "request": {
+        "model": "lfm2.5:24b",
+        "messages": [
+          {
+            "role": "user",
+            "content": "Reply with just OK."
+          }
+        ],
+        "think": false,
+        "stream": false,
+        "options": {
+          "num_predict": 64,
+          "num_ctx": 131072,
+          "temperature": 0
+        }
+      },
+      "response": {
+        "model": "lfm2.5:24b",
+        "created_at": "2026-10-15T18:38:46.0761734Z",
+        "message": {
+          "role": "assistant",
+          "content": "",
+          "thinking": "\nWe need to respond to the user's request: \"Reply with just OK.\" The instruction says to think it through and then give answer. The user explicitly asks for a reply with just \"OK\". So we should output exactly \"OK\". No extra text, no explanation. The system prompt says \"You are a"
+        },
+        "done": true,
+        "done_reason": "length",
+        "total_duration": 425227500,
+        "load_duration": 4406200,
+        "prompt_eval_count": 15,
+        "prompt_eval_cached_count": 11,
+        "prompt_eval_duration": 22306000,
+        "eval_count": 64,
+        "eval_duration": 396422000
+      }
+    },
+    {
+      "kind": "compatible-off",
+      "endpoint": "/v1/chat/completions",
+      "request": {
+        "model": "lfm2.5:24b",
+        "messages": [
+          {
+            "role": "user",
+            "content": "Reply with just OK."
+          }
+        ],
+        "reasoning_effort": "none",
+        "max_tokens": 64,
+        "temperature": 0,
+        "stream": false
+      },
+      "response": {
+        "id": "chatcmpl-338",
+        "object": "chat.completion",
+        "created": 1792089526,
+        "model": "lfm2.5:24b",
+        "system_fingerprint": "fp_ollama",
+        "choices": [
+          {
+            "index": 0,
+            "message": {
+              "role": "assistant",
+              "content": "",
+              "reasoning": "\nWe need to respond to the user's request: \"Reply with just OK.\" The instruction says to think it through and then give answer. The user explicitly asks for a reply with just \"OK\". So we should output exactly \"OK\". No extra text, no explanation. The system prompt says \"You are a"
+            },
+            "finish_reason": "length"
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 15,
+          "prompt_tokens_details": {
+            "cached_tokens": 11
+          },
+          "completion_tokens": 64,
+          "total_tokens": 79
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,138 @@
+{
+    "id": "17d57550-0b33-4ec4-9a71-75c2fc853989",
+    "task_name": "ticket-triage",
+    "trial_name": "ticket-triage__hqHXFAv",
+    "trial_uri": "file:///home/mrbru/personal/the-benchmark/out/studio/6b5656a2-4e3a-4062-928d-9c74354affcb/job/ticket-triage__hqHXFAv",
+    "task_id": {
+        "path": "/home/mrbru/personal/the-benchmark/tasks/local-v1/ticket-triage"
+    },
+    "source": null,
+    "task_checksum": "9b82f83b47049baed8b59312f404f7016f8e74d019bb5ed12f3d227c5f89f4bf",
+    "config": {
+        "task": {
+            "path": "/home/mrbru/personal/the-benchmark/tasks/local-v1/ticket-triage",
+            "git_url": null,
+            "git_commit_id": null,
+            "name": null,
+            "ref": null,
+            "overwrite": false,
+            "download_dir": null,
+            "source": null
+        },
+        "trial_name": "ticket-triage__hqHXFAv",
+        "trials_dir": "/home/mrbru/personal/the-benchmark/out/studio/6b5656a2-4e3a-4062-928d-9c74354affcb/job",
+        "install_only": false,
+        "timeout_multiplier": 1.0,
+        "agent_timeout_multiplier": null,
+        "verifier_timeout_multiplier": null,
+        "agent_setup_timeout_multiplier": null,
+        "environment_build_timeout_multiplier": null,
+        "agent": {
+            "name": null,
+            "import_path": "benchmark_harness:BenchmarkPi",
+            "model_name": "openai/lfm2.5:24b",
+            "n_concurrent": null,
+            "concurrency_group": null,
+            "skills": [],
+            "override_timeout_sec": 900.0,
+            "override_setup_timeout_sec": null,
+            "max_timeout_sec": null,
+            "resume_trajectory": false,
+            "load_trajectory": null,
+            "extra_allowed_hosts": [],
+            "kwargs": {
+                "version": "1.0.4",
+                "model_api": "openai-completions",
+                "max_turns": 24,
+                "max_tokens": 32768,
+                "context_window": 131072,
+                "temperature": 0,
+                "reasoning": "none"
+            },
+            "env": {
+                "OPENAI_API_KEY": "loca****ark",
+                "OPENAI_BASE_URL": "http://host.docker.internal:11434/v1"
+            },
+            "mcp_servers": []
+        },
+        "user_agent": null,
+        "environment": {
+            "type": "docker",
+            "import_path": null,
+            "force_build": false,
+            "delete": true,
+            "stream": false,
+            "cpu_enforcement_policy": "auto",
+            "memory_enforcement_policy": "auto",
+            "override_cpus": null,
+            "override_memory_mb": null,
+            "override_storage_mb": null,
+            "override_gpus": null,
+            "override_tpu": null,
+            "mounts": null,
+            "extra_docker_compose": [],
+            "kwargs": {},
+            "extra_allowed_hosts": []
+        },
+        "verifier": {
+            "override_timeout_sec": null,
+            "max_timeout_sec": null,
+            "disable": false
+        },
+        "artifacts": [],
+        "extra_instruction_paths": [],
+        "extra_instructions": [],
+        "job_id": "8019d81e-d457-49a7-a981-cfa0e72e1267",
+        "source_trial": null
+    },
+    "agent_info": {
+        "name": "pi",
+        "version": "1.0.4",
+        "model_info": {
+            "name": "lfm2.5:24b",
+            "provider": "openai"
+        }
+    },
+    "agent_result": {
+        "n_input_tokens": 5522,
+        "n_cache_tokens": 4713,
+        "n_output_tokens": 1968,
+        "cost_usd": null,
+        "model_usage": {
+            "benchmark-local/lfm2.5:24b": {
+                "n_input_tokens": 5522,
+                "n_cache_tokens": 4713,
+                "n_output_tokens": 1968,
+                "cost_usd": null
+            }
+        },
+        "rollout_details": null,
+        "metadata": null
+    },
+    "verifier_result": {
+        "rewards": {
+            "reward": 0.0
+        }
+    },
+    "verifier_environment_mode": "separate",
+    "exception_info": null,
+    "started_at": "2026-10-15T18:58:09.150226Z",
+    "finished_at": "2026-10-15T18:58:50.258499Z",
+    "environment_setup": {
+        "started_at": "2026-10-15T18:58:09.151294Z",
+        "finished_at": "2026-10-15T18:58:14.445361Z"
+    },
+    "agent_setup": {
+        "started_at": "2026-10-15T18:58:14.445406Z",
+        "finished_at": "2026-10-15T18:58:15.004873Z"
+    },
+    "agent_execution": {
+        "started_at": "2026-10-15T18:58:15.004986Z",
+        "finished_at": "2026-10-15T18:58:34.852143Z"
+    },
+    "verifier": {
+        "started_at": "2026-10-15T18:58:39.902363Z",
+        "finished_at": "2026-10-15T18:58:50.258488Z"
+    },
+    "step_results": null
+}

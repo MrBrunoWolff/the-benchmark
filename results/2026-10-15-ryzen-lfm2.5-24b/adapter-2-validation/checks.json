@@ -1,0 +1,24 @@
+{
+  "cliTests": {
+    "passed": 60,
+    "failed": 0
+  },
+  "studioAndExtensionTests": {
+    "passed": 16,
+    "failed": 0
+  },
+  "pythonProtocolTests": {
+    "passed": 6,
+    "failed": 0
+  },
+  "studioBuild": "passed",
+  "pinnedPiRuntimeScenarios": 3,
+  "realHarborTurnCap": "graded failed artifact, zero execution errors",
+  "browser": {
+    "outputLimit": 32768,
+    "offRequestLabel": true,
+    "thinkingNotice": true,
+    "adapterRevisionVisible": "2",
+    "pageErrors": []
+  }
+}

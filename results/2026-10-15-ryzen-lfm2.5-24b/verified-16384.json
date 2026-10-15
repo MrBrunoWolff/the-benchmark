@@ -1,0 +1,179 @@
+{
+  "id": "de9b545f-7790-4193-a5cf-ff0a638c2a91",
+  "status": "completed",
+  "createdAt": "2026-10-15T18:07:48.359Z",
+  "config": {
+    "kind": "tasks",
+    "endpoint": "http://localhost:11434",
+    "model": "lfm2.5:24b",
+    "tasks": [
+      "money-split",
+      "csv-parser",
+      "ticket-triage"
+    ],
+    "repeats": 1,
+    "maxTurns": 24,
+    "maxTokens": 16384,
+    "contextWindow": 131072,
+    "timeout": 900,
+    "reasoning": "none",
+    "temperature": 0,
+    "phases": [
+      "prefill",
+      "generation"
+    ],
+    "sizes": [
+      256,
+      2048,
+      8192
+    ],
+    "depths": [
+      0
+    ],
+    "concurrency": [
+      1,
+      2,
+      4
+    ],
+    "genTokens": 256
+  },
+  "backend": {
+    "serverVersion": "0.40.4",
+    "model": {
+      "name": "lfm2.5:24b",
+      "model": "lfm2.5:24b",
+      "size": 17649578802,
+      "digest": "00a755688d0f0e0848bc967f84f28151a4d09a9a5e69c3750ef97a4e21a58fc8",
+      "details": {
+        "parent_model": "",
+        "format": "gguf",
+        "family": "lfm2moe",
+        "families": [
+          "lfm2moe"
+        ],
+        "parameter_size": "24.0B",
+        "quantization_level": "Q4_K_M"
+      },
+      "expires_at": "2026-10-15T15:37:07.6048903-03:00",
+      "size_vram": 17649578802,
+      "context_length": 131072,
+      "runner": "llamacpp"
+    },
+    "capturedAt": "2026-10-15T18:07:48.359Z"
+  },
+  "hardware": {
+    "platform": "linux",
+    "architecture": "x64",
+    "cpu": "AMD Ryzen 7 5800X3D 8-Core Processor",
+    "cpuCount": 16,
+    "memoryBytes": 16724680704
+  },
+  "versions": {
+    "studio": "0.4.0",
+    "harbor": "0.24.0",
+    "pi": "1.0.4",
+    "agentNative": "0.201.1"
+  },
+  "suite": "local-v1@1.0.0",
+  "taskHashes": {
+    "money-split": "b9c9324aeb54bb22369f19c947d96ac260287e83c27bce724fb462652b7018fb",
+    "csv-parser": "dcf8dbbe42165ce5c17e3ea28ea5af909b3b3eb3b0756bc75bcee245d97ef280",
+    "ticket-triage": "51ad9888102193799c02d52f988735fd385eae9cfe58a22b36b26407a343a0a9"
+  },
+  "trials": [
+    {
+      "id": "csv-parser__5FBHEJS",
+      "task": "csv-parser",
+      "status": "error",
+      "reward": null,
+      "seconds": 726.01,
+      "setupSeconds": 5.288,
+      "inputTokens": 132760,
+      "outputTokens": 55375,
+      "budgetExhausted": true,
+      "outputBudgetExhausted": false,
+      "lastStopReason": "error",
+      "toolErrors": [
+        {
+          "tool": "bash",
+          "message": "Test 1 (empty): []\nTest 2 (simple): [[\"a\",\"b\",\"c\"]]\nTest 3 (quoted comma): [[\"a\",\"b\",\"c\",\"d\"]]\nTest 4 (CRLF): [[\"a\",\"b\"],[\"c\",\"d\"]]\nfile:///app/csv.mjs:100\n    throw new SyntaxError('Unclosed quoted field');\n          ^\n\nSyntaxError: Unclosed quoted field\n    at splitRecord (file:///app/csv.mjs:100:11)\n    at parseCSV (file:///app/csv.mjs:9:17)\n    at file:///app/test.mjs:18:12\n    at ModuleJob.run (node:internal/modules/esm/module_job:439:25)\n    at async node:internal/modules/esm/loader:643:26"
+        },
+        {
+          "tool": "bash",
+          "message": "Test 3: [[\"a\",\"b\",\"c\",\"d\"]]\nfile:///app/csv.mjs:100\n    throw new SyntaxError('Unclosed quoted field');\n          ^\n\nSyntaxError: Unclosed quoted field\n    at splitRecord (file:///app/csv.mjs:100:11)\n    at Module.parseCSV (file:///app/csv.mjs:9:17)\n    at [eval]:4:43\n\nNode.js v24.19.0\n\n\nCommand exited with code 1"
+        },
+        {
+          "tool": "bash",
+          "message": "file:///app/csv.mjs:100\n    throw new SyntaxError('Unclosed quoted field');\n          ^\n\nSyntaxError: Unclosed quoted field\n    at splitRecord (file:///app/csv.mjs:100:11)\n    at Module.parseCSV (file:///app/csv.mjs:9:17)\n    at [eval]:3:15\n\nNode.js v24.19.0\n\n\nCommand exited with code 1"
+        },
+        {
+          "tool": "bash",
+          "message": "Test 1 (empty): []\nTest 2 (simple): [[\"a\",\"b\",\"c\"]]\nTest 3 (quoted comma): [[\"a\",\"b\",\"c\",\"d\"]]\nTest 4 (CRLF): [[\"a\",\"b\"],[\"c\",\"d\"]]\nfile:///app/csv.mjs:96\n    throw new SyntaxError('Unclosed quoted field');\n          ^\n\nSyntaxError: Unclosed quoted field\n    at splitRecord (file:///app/csv.mjs:96:11)\n    at parseCSV (file:///app/csv.mjs:9:17)\n    at file:///app/test.mjs:18:12\n    at ModuleJob.run (node:internal/modules/esm/module_job:439:25)\n    at async node:internal/modules/esm/loader:643:26\n "
+        },
+        {
+          "tool": "bash",
+          "message": "file:///app/csv.mjs:96\n    throw new SyntaxError('Unclosed quoted field');\n          ^\n\nSyntaxError: Unclosed quoted field\n    at splitRecord (file:///app/csv.mjs:96:11)\n    at Module.parseCSV (file:///app/csv.mjs:9:17)\n    at [eval]:3:20\n\nNode.js v24.19.0\n\n\nCommand exited with code 1"
+        }
+      ],
+      "error": {
+        "type": "ModelRequestError",
+        "message": "This operation was aborted"
+      },
+      "checksum": "c8844e86ef37013fb8b83f01bef036c3235a228e96d37b6cc28d5e3fddfd2f5f",
+      "agentVersion": "1.0.4",
+      "resultFile": "job/csv-parser__5FBHEJS/result.json"
+    },
+    {
+      "id": "money-split__29jihbP",
+      "task": "money-split",
+      "status": "passed",
+      "reward": 1,
+      "seconds": 30.169,
+      "setupSeconds": 5.292,
+      "inputTokens": 11548,
+      "outputTokens": 3192,
+      "budgetExhausted": false,
+      "outputBudgetExhausted": false,
+      "lastStopReason": "stop",
+      "toolErrors": [],
+      "error": null,
+      "checksum": "b339a74df700b64c979e161e32ecc579196d6914f9bb2f8ebc46e8f6edecddc2",
+      "agentVersion": "1.0.4",
+      "resultFile": "job/money-split__29jihbP/result.json"
+    },
+    {
+      "id": "ticket-triage__7FRRfrY",
+      "task": "ticket-triage",
+      "status": "failed",
+      "reward": 0,
+      "seconds": 24.11,
+      "setupSeconds": 5.327,
+      "inputTokens": 5358,
+      "outputTokens": 2430,
+      "budgetExhausted": false,
+      "outputBudgetExhausted": false,
+      "lastStopReason": "stop",
+      "toolErrors": [],
+      "error": null,
+      "checksum": "9b82f83b47049baed8b59312f404f7016f8e74d019bb5ed12f3d227c5f89f4bf",
+      "agentVersion": "1.0.4",
+      "resultFile": "job/ticket-triage__7FRRfrY/result.json"
+    }
+  ],
+  "summary": {
+    "expected": 3,
+    "completed": 3,
+    "passed": 1,
+    "failed": 1,
+    "setupErrors": 0,
+    "errors": 1,
+    "successRate": 0.5,
+    "medianSeconds": 30.169,
+    "inputTokens": 149666,
+    "outputTokens": 60997
+  },
+  "startedAt": "2026-10-15T18:07:48.363Z",
+  "exitCode": 0,
+  "finishedAt": "2026-10-15T18:21:44.719Z",
+  "seconds": 836.356
+}

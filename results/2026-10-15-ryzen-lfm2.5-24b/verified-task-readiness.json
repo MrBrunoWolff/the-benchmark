@@ -1,0 +1,1 @@
+{"docker":{"ready":true,"detail":"29.8.0"},"harbor":{"ready":true,"detail":"0.24.0"},"image":{"ready":true,"detail":"sha256:a8cecb678d072da12c3764ce4d8bd7608a0d84b1ad6f640c48045044f2014e4b"},"versions":{"studio":"0.4.0","harbor":"0.24.0","pi":"1.0.4","agentNative":"0.201.1"},"taskReady":true}

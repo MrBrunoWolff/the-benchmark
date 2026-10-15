@@ -60,6 +60,9 @@ Future downloaded models use the same adapter; models must support OpenAI-compat
 streaming chat and native tool calls. No cloud credentials are needed. Set the
 context window to match the server, and keep output tokens below that window.
 Reasoning settings are requests to the server; support depends on the model/backend.
+Studio labels off as a request and reports thinking in saved transcripts. Output
+budgets up to 32,768 tokens per turn are available; the default remains 4,096.
+A 131,072-token context includes both prompts and generated output.
 
 The layers have separate jobs:
 
@@ -122,6 +125,13 @@ previous budgets. Zero temperature can reproduce the same failure across attempt
 A server-side tool-decoding error (for example a missing function-call wrapper) is
 an execution error, not evidence that the resulting code failed functional checks.
 These diagnostics do not change the checks or the score.
+
+Adapter revision 2 marks intentional turn-cap cancellations so Harbor can grade
+the saved artifact. Provider failures still count as execution errors. Historical
+runs keep their original outcomes; compare the recorded adapter revision as well
+as budgets. `npm run harness:test` checks the Python result protocol. The opt-in
+`harness/tests/pi-runtime.mjs` fixture checks the pinned Pi runtime inside Docker
+with a local mock provider and no external network.
 
 The npm package ships the Studio sources and pinned dependency lockfile alongside
 the dependency-free CLI. UI dependencies are installed only when Studio is launched.

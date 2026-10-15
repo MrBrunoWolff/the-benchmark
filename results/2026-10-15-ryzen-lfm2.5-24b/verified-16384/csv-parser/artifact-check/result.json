@@ -1,0 +1,10 @@
+{
+  "kind": "separate-artifact-diagnostic",
+  "formalStudioGradeChanged": false,
+  "exitCode": 1,
+  "checksPassed": false,
+  "image": "node:24.19.0-bookworm-slim@sha256:a9f5f7c91a432850b2a8a7797adf5eadb6c733ceed61167806cee7ea7fbc29df",
+  "network": "none",
+  "mounts": "artifact and unchanged verifier tests, both read-only",
+  "note": "The formal trial aborted at its turn cap and has no verifier grade. These unchanged functional checks were run separately against its archived CSV artifact without rerunning or editing the agent."
+}

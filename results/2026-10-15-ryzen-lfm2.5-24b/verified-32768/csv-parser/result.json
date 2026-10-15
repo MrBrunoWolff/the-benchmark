@@ -1,0 +1,138 @@
+{
+    "id": "0381d0d1-58db-4706-8616-27480ad4746c",
+    "task_name": "csv-parser",
+    "trial_name": "csv-parser__af6b7qT",
+    "trial_uri": "file:///home/mrbru/personal/the-benchmark/out/studio/6b5656a2-4e3a-4062-928d-9c74354affcb/job/csv-parser__af6b7qT",
+    "task_id": {
+        "path": "/home/mrbru/personal/the-benchmark/tasks/local-v1/csv-parser"
+    },
+    "source": null,
+    "task_checksum": "c8844e86ef37013fb8b83f01bef036c3235a228e96d37b6cc28d5e3fddfd2f5f",
+    "config": {
+        "task": {
+            "path": "/home/mrbru/personal/the-benchmark/tasks/local-v1/csv-parser",
+            "git_url": null,
+            "git_commit_id": null,
+            "name": null,
+            "ref": null,
+            "overwrite": false,
+            "download_dir": null,
+            "source": null
+        },
+        "trial_name": "csv-parser__af6b7qT",
+        "trials_dir": "/home/mrbru/personal/the-benchmark/out/studio/6b5656a2-4e3a-4062-928d-9c74354affcb/job",
+        "install_only": false,
+        "timeout_multiplier": 1.0,
+        "agent_timeout_multiplier": null,
+        "verifier_timeout_multiplier": null,
+        "agent_setup_timeout_multiplier": null,
+        "environment_build_timeout_multiplier": null,
+        "agent": {
+            "name": null,
+            "import_path": "benchmark_harness:BenchmarkPi",
+            "model_name": "openai/lfm2.5:24b",
+            "n_concurrent": null,
+            "concurrency_group": null,
+            "skills": [],
+            "override_timeout_sec": 900.0,
+            "override_setup_timeout_sec": null,
+            "max_timeout_sec": null,
+            "resume_trajectory": false,
+            "load_trajectory": null,
+            "extra_allowed_hosts": [],
+            "kwargs": {
+                "version": "1.0.4",
+                "model_api": "openai-completions",
+                "max_turns": 24,
+                "max_tokens": 32768,
+                "context_window": 131072,
+                "temperature": 0,
+                "reasoning": "none"
+            },
+            "env": {
+                "OPENAI_API_KEY": "loca****ark",
+                "OPENAI_BASE_URL": "http://host.docker.internal:11434/v1"
+            },
+            "mcp_servers": []
+        },
+        "user_agent": null,
+        "environment": {
+            "type": "docker",
+            "import_path": null,
+            "force_build": false,
+            "delete": true,
+            "stream": false,
+            "cpu_enforcement_policy": "auto",
+            "memory_enforcement_policy": "auto",
+            "override_cpus": null,
+            "override_memory_mb": null,
+            "override_storage_mb": null,
+            "override_gpus": null,
+            "override_tpu": null,
+            "mounts": null,
+            "extra_docker_compose": [],
+            "kwargs": {},
+            "extra_allowed_hosts": []
+        },
+        "verifier": {
+            "override_timeout_sec": null,
+            "max_timeout_sec": null,
+            "disable": false
+        },
+        "artifacts": [],
+        "extra_instruction_paths": [],
+        "extra_instructions": [],
+        "job_id": "8019d81e-d457-49a7-a981-cfa0e72e1267",
+        "source_trial": null
+    },
+    "agent_info": {
+        "name": "pi",
+        "version": "1.0.4",
+        "model_info": {
+            "name": "lfm2.5:24b",
+            "provider": "openai"
+        }
+    },
+    "agent_result": {
+        "n_input_tokens": 46179,
+        "n_cache_tokens": 39910,
+        "n_output_tokens": 44438,
+        "cost_usd": null,
+        "model_usage": {
+            "benchmark-local/lfm2.5:24b": {
+                "n_input_tokens": 46179,
+                "n_cache_tokens": 39910,
+                "n_output_tokens": 44438,
+                "cost_usd": null
+            }
+        },
+        "rollout_details": null,
+        "metadata": null
+    },
+    "verifier_result": {
+        "rewards": {
+            "reward": 0.0
+        }
+    },
+    "verifier_environment_mode": "separate",
+    "exception_info": null,
+    "started_at": "2026-10-15T18:46:58.125630Z",
+    "finished_at": "2026-10-15T18:58:09.112143Z",
+    "environment_setup": {
+        "started_at": "2026-10-15T18:46:58.126633Z",
+        "finished_at": "2026-10-15T18:47:03.508348Z"
+    },
+    "agent_setup": {
+        "started_at": "2026-10-15T18:47:03.508375Z",
+        "finished_at": "2026-10-15T18:47:04.074224Z"
+    },
+    "agent_execution": {
+        "started_at": "2026-10-15T18:47:04.074346Z",
+        "finished_at": "2026-10-15T18:57:51.764406Z"
+    },
+    "verifier": {
+        "started_at": "2026-10-15T18:57:58.250150Z",
+        "finished_at": "2026-10-15T18:58:09.112128Z"
+    },
+    "step_results": null
+}

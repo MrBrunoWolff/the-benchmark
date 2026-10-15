@@ -1,0 +1,160 @@
+{
+  "id": "44898420-865e-40ce-bc43-936de4981ebe",
+  "status": "completed",
+  "createdAt": "2026-10-15T17:44:02.771Z",
+  "config": {
+    "kind": "tasks",
+    "endpoint": "http://localhost:11434",
+    "model": "lfm2.5:24b",
+    "tasks": [
+      "money-split",
+      "csv-parser",
+      "ticket-triage"
+    ],
+    "repeats": 1,
+    "maxTurns": 24,
+    "maxTokens": 4096,
+    "contextWindow": 131072,
+    "timeout": 600,
+    "reasoning": "none",
+    "temperature": 0,
+    "phases": [
+      "prefill",
+      "generation"
+    ],
+    "sizes": [
+      256,
+      2048,
+      8192
+    ],
+    "depths": [
+      0
+    ],
+    "concurrency": [
+      1,
+      2,
+      4
+    ],
+    "genTokens": 256
+  },
+  "backend": {
+    "serverVersion": "0.40.4",
+    "model": {
+      "name": "lfm2.5:24b",
+      "model": "lfm2.5:24b",
+      "size": 17649578802,
+      "digest": "00a755688d0f0e0848bc967f84f28151a4d09a9a5e69c3750ef97a4e21a58fc8",
+      "details": {
+        "parent_model": "",
+        "format": "gguf",
+        "family": "lfm2moe",
+        "families": [
+          "lfm2moe"
+        ],
+        "parameter_size": "24.0B",
+        "quantization_level": "Q4_K_M"
+      },
+      "expires_at": "2026-10-15T15:12:38.3347527-03:00",
+      "size_vram": 17649578802,
+      "context_length": 131072,
+      "runner": "llamacpp"
+    },
+    "capturedAt": "2026-10-15T17:44:02.771Z"
+  },
+  "hardware": {
+    "platform": "linux",
+    "architecture": "x64",
+    "cpu": "AMD Ryzen 7 5800X3D 8-Core Processor",
+    "cpuCount": 16,
+    "memoryBytes": 16724680704
+  },
+  "versions": {
+    "studio": "0.4.0",
+    "harbor": "0.24.0",
+    "pi": "1.0.4",
+    "agentNative": "0.201.1"
+  },
+  "suite": "local-v1@1.0.0",
+  "taskHashes": {
+    "money-split": "b9c9324aeb54bb22369f19c947d96ac260287e83c27bce724fb462652b7018fb",
+    "csv-parser": "dcf8dbbe42165ce5c17e3ea28ea5af909b3b3eb3b0756bc75bcee245d97ef280",
+    "ticket-triage": "51ad9888102193799c02d52f988735fd385eae9cfe58a22b36b26407a343a0a9"
+  },
+  "trials": [
+    {
+      "id": "csv-parser__NPPzQJn",
+      "task": "csv-parser",
+      "status": "failed",
+      "reward": 0,
+      "seconds": 42.769,
+      "setupSeconds": 5.513,
+      "inputTokens": 4611,
+      "outputTokens": 4172,
+      "budgetExhausted": false,
+      "outputBudgetExhausted": true,
+      "lastStopReason": "length",
+      "toolErrors": [],
+      "error": null,
+      "checksum": "c8844e86ef37013fb8b83f01bef036c3235a228e96d37b6cc28d5e3fddfd2f5f",
+      "agentVersion": "1.0.4",
+      "resultFile": "job/csv-parser__NPPzQJn/result.json"
+    },
+    {
+      "id": "money-split__RdDk5W3",
+      "task": "money-split",
+      "status": "passed",
+      "reward": 1,
+      "seconds": 26.224,
+      "setupSeconds": 9.929,
+      "inputTokens": 9481,
+      "outputTokens": 2685,
+      "budgetExhausted": false,
+      "outputBudgetExhausted": false,
+      "lastStopReason": "stop",
+      "toolErrors": [],
+      "error": null,
+      "checksum": "b339a74df700b64c979e161e32ecc579196d6914f9bb2f8ebc46e8f6edecddc2",
+      "agentVersion": "1.0.4",
+      "resultFile": "job/money-split__RdDk5W3/result.json"
+    },
+    {
+      "id": "ticket-triage__V9X2qAR",
+      "task": "ticket-triage",
+      "status": "failed",
+      "reward": 0,
+      "seconds": 25.563,
+      "setupSeconds": 5.466,
+      "inputTokens": 9930,
+      "outputTokens": 2578,
+      "budgetExhausted": false,
+      "outputBudgetExhausted": false,
+      "lastStopReason": "stop",
+      "toolErrors": [
+        {
+          "tool": "bash",
+          "message": "/bin/bash: line 1: python3: command not found\n\n\nCommand exited with code 127"
+        }
+      ],
+      "error": null,
+      "checksum": "9b82f83b47049baed8b59312f404f7016f8e74d019bb5ed12f3d227c5f89f4bf",
+      "agentVersion": "1.0.4",
+      "resultFile": "job/ticket-triage__V9X2qAR/result.json"
+    }
+  ],
+  "summary": {
+    "expected": 3,
+    "completed": 3,
+    "passed": 1,
+    "failed": 2,
+    "setupErrors": 0,
+    "errors": 0,
+    "successRate": 0.3333333333333333,
+    "medianSeconds": 26.224,
+    "inputTokens": 24022,
+    "outputTokens": 9435
+  },
+  "startedAt": "2026-10-15T17:44:02.776Z",
+  "exitCode": 0,
+  "finishedAt": "2026-10-15T17:46:52.890Z",
+  "seconds": 170.114
+}

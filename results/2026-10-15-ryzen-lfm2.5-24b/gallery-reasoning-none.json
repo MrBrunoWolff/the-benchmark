@@ -1,0 +1,130 @@
+{
+  "target": "ollama",
+  "base": "http://localhost:11434",
+  "model": "lfm2.5:24b",
+  "runs": 3,
+  "depths": [
+    0
+  ],
+  "concurrency": [
+    9
+  ],
+  "concTokens": 192,
+  "scenario": "svg",
+  "latencyMode": "generation",
+  "latencyMs": 75.8250999999982,
+  "totalS": 86.674895955,
+  "timings": [
+    {
+      "label": "Concurrency (svg gallery)",
+      "seconds": 64.83916494
+    }
+  ],
+  "results": [
+    {
+      "phase": "concurrent",
+      "mode": "gallery",
+      "scenario": "svg",
+      "topic": "deep sea life",
+      "slots": 9,
+      "plannedCount": 0,
+      "aggTps": 145.50522257131428,
+      "overlap": 1,
+      "outTotal": 8100,
+      "seconds": 55.66810494399999,
+      "failed": 0,
+      "tasks": [
+        {
+          "name": "SVG 1",
+          "instruction": "Draw a simple flat-colour icon representing \"deep sea life\", variation 1. Make it visually distinct from the others.",
+          "outTokens": 900,
+          "genTps": 148.76958278861437,
+          "ttftMs": 12535.544808999999,
+          "seconds": 18.578446746,
+          "error": null,
+          "chars": 0
+        },
+        {
+          "name": "SVG 2",
+          "instruction": "Draw a simple flat-colour icon representing \"deep sea life\", variation 2. Make it visually distinct from the others.",
+          "outTokens": 900,
+          "genTps": 147.74568007753652,
+          "ttftMs": 6382.647130000001,
+          "seconds": 12.467427405999999,
+          "error": null,
+          "chars": 0
+        },
+        {
+          "name": "SVG 3",
+          "instruction": "Draw a simple flat-colour icon representing \"deep sea life\", variation 3. Make it visually distinct from the others.",
+          "outTokens": 900,
+          "genTps": 147.61599567651643,
+          "ttftMs": 18652.429972,
+          "seconds": 24.742555881999998,
+          "error": null,
+          "chars": 0
+        },
+        {
+          "name": "SVG 4",
+          "instruction": "Draw a simple flat-colour icon representing \"deep sea life\", variation 4. Make it visually distinct from the others.",
+          "outTokens": 900,
+          "genTps": 146.7383614413534,
+          "ttftMs": 24809.272022999998,
+          "seconds": 30.935822648000002,
+          "error": null,
+          "chars": 0
+        },
+        {
+          "name": "SVG 5",
+          "instruction": "Draw a simple flat-colour icon representing \"deep sea life\", variation 5. Make it visually distinct from the others.",
+          "outTokens": 900,
+          "genTps": 145.58545681596493,
+          "ttftMs": 49488.634166,
+          "seconds": 55.66370150899999,
+          "error": null,
+          "chars": 0
+        },
+        {
+          "name": "SVG 6",
+          "instruction": "Draw a simple flat-colour icon representing \"deep sea life\", variation 6. Make it visually distinct from the others.",
+          "outTokens": 900,
+          "genTps": 145.73968907493668,
+          "ttftMs": 132.92340500000137,
+          "seconds": 6.3014558460000005,
+          "error": null,
+          "chars": 0
+        },
+        {
+          "name": "SVG 7",
+          "instruction": "Draw a simple flat-colour icon representing \"deep sea life\", variation 7. Make it visually distinct from the others.",
+          "outTokens": 900,
+          "genTps": 147.4300674978243,
+          "ttftMs": 31010.542794,
+          "seconds": 37.108349131999994,
+          "error": null,
+          "chars": 0
+        },
+        {
+          "name": "SVG 8",
+          "instruction": "Draw a simple flat-colour icon representing \"deep sea life\", variation 8. Make it visually distinct from the others.",
+          "outTokens": 900,
+          "genTps": 147.88992382345316,
+          "ttftMs": 37175.499339,
+          "seconds": 43.254344853,
+          "error": null,
+          "chars": 0
+        },
+        {
+          "name": "SVG 9",
+          "instruction": "Draw a simple flat-colour icon representing \"deep sea life\", variation 9. Make it visually distinct from the others.",
+          "outTokens": 900,
+          "genTps": 147.39719854651344,
+          "ttftMs": 43321.712853,
+          "seconds": 49.420878976,
+          "error": null,
+          "chars": 0
+        }
+      ]
+    }
+  ]
+}

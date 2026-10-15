@@ -60,6 +60,7 @@
     "studio": "node studio/server.mjs",
     "studio:build": "npm --prefix studio run build",
     "studio:test": "npm --prefix studio test",
+    "harness:test": "python3 -m unittest discover -s harness/tests -p 'test_*.py'",
     "check:ci": "node scripts/quality.mjs",
     "check:code": "node scripts/quality.mjs code",
     "check:security": "node scripts/quality.mjs security"

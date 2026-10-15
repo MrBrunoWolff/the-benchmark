@@ -9,6 +9,7 @@
       ["node", "--check", "bench.mjs"],
       ["bun", "run", "build:binaries", "bun-linux-x64"],
       ["npm", "run", "studio:test"],
+      ["npm", "run", "harness:test"],
       ["npm", "run", "studio:build"]
     ],
     "security": [["npm", "audit", "--prefix", "studio"]]

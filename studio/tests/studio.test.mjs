@@ -19,6 +19,9 @@ test('local-only configuration rejects remote URLs, credentials, cloud IDs and i
   assert.throws(() => parseConfig({ kind: 'tasks', model: 'muse', maxTokens: 4096, contextWindow: 4096 }));
   assert.throws(() => parseConfig({ kind: 'tasks', model: 'muse', repeats: 0 }));
   assert.throws(() => parseConfig({ kind: 'tasks', model: 'muse', tasks: ['unknown'] }));
+  assert.equal(parseConfig({ kind: 'tasks', model: 'muse', maxTokens: 32768, contextWindow: 131072 }).maxTokens, 32768);
+  assert.throws(() => parseConfig({ kind: 'tasks', model: 'muse', maxTokens: 32769 }));
+  assert.throws(() => parseConfig({ kind: 'tasks', model: 'muse', maxTokens: 32768, contextWindow: 32768 }));
 });
 
 test('Harbor jobs use separate attempts, fixed budgets, no retries and the exact selected endpoint', () => {
@@ -87,6 +90,34 @@ test('legacy console JSON is parsed without mistaking log lines for results', ()
   const result = { model: 'muse', results: [{ phase: 'generation', tokens: 7 }] };
   assert.deepEqual(parseSpeedOutput(`Prefill log\nreport /tmp/report.html\n\n${JSON.stringify(result, null, 2)}\n`), result);
   assert.equal(parseSpeedOutput('not a completed result'), null);
+});
+
+test('clean turn caps retain verifier grades and real errors stay errors', () => {
+  const root = mkdtempSync(join(tmpdir(), 'benchmark-boundary-'));
+  try {
+    const add = (id, reward, events) => {
+      const dir = join(root, 'job', id); mkdirSync(join(dir, 'agent'), { recursive: true });
+      writeFileSync(join(dir, 'result.json'), JSON.stringify({ trial_name: id, verifier_result: { rewards: { reward } } }));
+      writeFileSync(join(dir, 'agent', 'pi.txt'), events.map(e => JSON.stringify(e)).join('\n'));
+    };
+    const cap = { type: 'benchmark_budget', maxTurns: 2, termination: 'abort' };
+    const aborted = { type: 'message_end', message: { role: 'assistant', stopReason: 'error', errorMessage: 'This operation was aborted' } };
+    add('cap-fail', 0, [
+      { type: 'benchmark_request', reasoningEffort: 'none', maxTokens: 4096 },
+      { type: 'message_end', message: { role: 'assistant', stopReason: 'toolUse', content: [{ type: 'thinking', thinking: 'fixture thinking' }] } }, cap, aborted,
+    ]);
+    add('cap-pass', 1, [cap]);
+    add('cap-error', null, [cap, { type: 'message_end', message: { role: 'assistant', stopReason: 'error', errorMessage: 'Connection error' } }]);
+    add('old-abort', null, [{ type: 'benchmark_budget', maxTurns: 2 }, aborted]);
+    add('quoted-marker', 1, [{ type: 'tool_execution_end', result: { content: [{ type: 'text', text: JSON.stringify(cap) }] } }]);
+    const trials = taskResults(root), failed = trials.find(t => t.id === 'cap-fail');
+    assert.equal(failed.status, 'failed'); assert.equal(failed.budgetExhausted, true);
+    assert.equal(failed.thinkingObserved, true); assert.equal(failed.requestReasoningEffort, 'none');
+    assert.equal(trials.find(t => t.id === 'cap-pass').status, 'passed');
+    assert.equal(trials.find(t => t.id === 'cap-error').status, 'error');
+    assert.equal(trials.find(t => t.id === 'old-abort').status, 'error');
+    assert.equal(trials.find(t => t.id === 'quoted-marker').budgetExhausted, false);
+  } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
 test('model discovery uses loaded LM Studio models and supports generic endpoints', async () => {

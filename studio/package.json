@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "node server.mjs",
     "build": "vite build",
-    "test": "node --test tests/*.test.mjs"
+    "test": "node --test tests/*.test.mjs ../harness/tests/*.test.mjs"
   },
   "dependencies": {
     "@agent-native/core": "0.206.0",

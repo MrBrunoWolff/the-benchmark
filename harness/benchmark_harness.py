@@ -12,6 +12,7 @@ from urllib.parse import urlsplit, urlunsplit
 from harbor.agents.installed.pi import Pi, PiOptions
 from pydantic import Field
 from harbor.models.task.config import NetworkPolicy
+from pi_protocol import check_pi_result, extension_source
 
 PI_VERSION = "1.0.4"
 
@@ -88,29 +89,10 @@ class BenchmarkPi(Pi):
             content=json.dumps({"compaction": {"enabled": True}, "retry": {"enabled": False}}),
             remote_path=str(config_dir / "settings.json"), filename="settings.json")
         budget = self.options.max_turns or 24
-        extension = f'''export default function(pi) {{
-  const originalFetch = globalThis.fetch;
-  globalThis.fetch = async (...args) => {{
-    try {{ return await originalFetch(...args); }}
-    catch (error) {{
-      console.log(JSON.stringify({{type:"benchmark_transport_error", message:error.message,
-        cause:error.cause?.message, code:error.cause?.code}}));
-      throw error;
-    }}
-  }};
-  let turns = 0;
-  pi.on("before_agent_start", event => ({{systemPrompt: event.systemPrompt +
-    "\\nComplete this task within {budget} model turns. Use only local files and commands. Do not access the network."}}));
-  pi.on("turn_end", (event, ctx) => {{
-    if (++turns >= {budget}) {{
-      console.log(JSON.stringify({{type:"benchmark_budget", maxTurns:{budget}}}));
-      ctx.abort();
-    }}
-  }});
-}}'''
-        extension_path = str(config_dir / "budget.ts")
+        extension = extension_source(budget, self.options.reasoning)
+        extension_path = str(config_dir / "budget.mjs")
         await self._upload_config_text(environment, content=extension,
-                                       remote_path=extension_path, filename="budget.ts")
+                                       remote_path=extension_path, filename="budget.mjs")
         sessions = self.environment_logs_dir / self._SESSIONS_DIRECTORY
         output = self.environment_logs_dir / self._OUTPUT_FILENAME
         q = shlex.quote
@@ -122,13 +104,4 @@ class BenchmarkPi(Pi):
                    f"--provider benchmark-local --model {q(model_id)} --thinking off "
                    f"{q(instruction)} 2>&1 | stdbuf -oL tee {q(str(output))}")
         result = await self.exec_as_agent(environment, command=command, env=dict(access.env))
-        if result.return_code != 0:
-            raise RuntimeError(f"Pi exited with status {result.return_code}; see agent/pi.txt")
-        for line in result.stdout.splitlines():
-            try:
-                event = json.loads(line)
-            except ValueError:
-                continue
-            message = event.get("message", {})
-            if event.get("type") == "message_end" and message.get("stopReason") == "error":
-                raise RuntimeError(f"Local model request failed: {message.get('errorMessage', 'unknown error')}")
+        check_pi_result(result.return_code, result.stdout)

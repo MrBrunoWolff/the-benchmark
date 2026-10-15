@@ -62,6 +62,13 @@ See the [CLI reference](https://github.com/MrBrunoWolff/the-benchmark/blob/main/
 
 For maintainer validation, see [QUALITY.md](https://github.com/MrBrunoWolff/the-benchmark/blob/main/QUALITY.md). Bun’s release-age policy can select an older eligible CLI; pin a version to check it explicitly, wait for it to age, or use npm. Reference guides are linked from GitHub so they remain accessible from the npm package.
 
+## Latest recorded run
+
+Ryzen 7 5800X3D / RX 7900 XT with LFM2.5 24B on Ollama: 152.5 generation
+tokens/s. The separate three-task verified suite passed 1/3 at 32k output tokens
+per turn. See [results and budget comparisons](https://github.com/MrBrunoWolff/the-benchmark/blob/main/docs/results.md) and the
+[archived samples, artifacts and charts](https://github.com/MrBrunoWolff/the-benchmark/blob/main/results/README.md).
+
 ## License
 
 MIT — see [LICENSE](LICENSE).

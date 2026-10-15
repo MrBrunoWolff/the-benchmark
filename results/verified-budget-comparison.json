@@ -1,0 +1,538 @@
+{
+  "model": "lfm2.5:24b",
+  "modelDigest": "00a755688d0f0e0848bc967f84f28151a4d09a9a5e69c3750ef97a4e21a58fc8",
+  "changedSettingsFromBaseline": {
+    "maxTokens": [
+      4096,
+      8192,
+      16384,
+      32768
+    ],
+    "timeout": [
+      600,
+      900
+    ],
+    "adapter": [
+      "legacy (unrecorded)",
+      "2"
+    ]
+  },
+  "taskHashes": {
+    "money-split": "b9c9324aeb54bb22369f19c947d96ac260287e83c27bce724fb462652b7018fb",
+    "csv-parser": "dcf8dbbe42165ce5c17e3ea28ea5af909b3b3eb3b0756bc75bcee245d97ef280",
+    "ticket-triage": "51ad9888102193799c02d52f988735fd385eae9cfe58a22b36b26407a343a0a9"
+  },
+  "versions": {
+    "studio": "0.4.0",
+    "harbor": "0.24.0",
+    "pi": "1.0.4",
+    "agentNative": "0.201.1"
+  },
+  "notes": [
+    "One fresh attempt per task in each configuration, no trial retries.",
+    "Same task hashes and model digest. The first three runs share harness versions; the 32,768-token run adds adapter revision 2. Output budgets and task deadlines also differ.",
+    "A single repeat per configuration does not establish reliability or isolate budget effects from run-to-run variation.",
+    "The 16,384-token CSV trial aborted at the 24-turn cap; formal reward is null and no verifier ran.",
+    "The 16,384-token raw successRate of 0.5 includes only two graded trials. The first three configurations have only one passed task out of three requested.",
+    "A separate no-network, read-only diagnostic of the archived 16,384-token CSV artifact failed unchanged functional checks; it does not replace the formal ungraded trial.",
+    "The 32,768-token run uses adapter revision 2: explicit reasoning request forwarding, thinking diagnostics and turn-cap grading. Historical runs retain their original outcomes. This is not a pure output-budget comparison."
+  ],
+  "runs": [
+    {
+      "id": "44898420-865e-40ce-bc43-936de4981ebe",
+      "label": "4,096 tokens \u00b7 600s deadline",
+      "source": "2026-10-15-ryzen-lfm2.5-24b/verified.json",
+      "config": {
+        "kind": "tasks",
+        "endpoint": "http://localhost:11434",
+        "model": "lfm2.5:24b",
+        "tasks": [
+          "money-split",
+          "csv-parser",
+          "ticket-triage"
+        ],
+        "repeats": 1,
+        "maxTurns": 24,
+        "maxTokens": 4096,
+        "contextWindow": 131072,
+        "timeout": 600,
+        "reasoning": "none",
+        "temperature": 0,
+        "phases": [
+          "prefill",
+          "generation"
+        ],
+        "sizes": [
+          256,
+          2048,
+          8192
+        ],
+        "depths": [
+          0
+        ],
+        "concurrency": [
+          1,
+          2,
+          4
+        ],
+        "genTokens": 256
+      },
+      "summary": {
+        "expected": 3,
+        "completed": 3,
+        "passed": 1,
+        "failed": 2,
+        "setupErrors": 0,
+        "errors": 0,
+        "successRate": 0.3333333333333333,
+        "medianSeconds": 26.224,
+        "inputTokens": 24022,
+        "outputTokens": 9435
+      },
+      "wallSeconds": 170.114,
+      "trials": [
+        {
+          "id": "csv-parser__NPPzQJn",
+          "task": "csv-parser",
+          "status": "failed",
+          "reward": 0,
+          "seconds": 42.769,
+          "setupSeconds": 5.513,
+          "inputTokens": 4611,
+          "outputTokens": 4172,
+          "budgetExhausted": false,
+          "outputBudgetExhausted": true,
+          "lastStopReason": "length",
+          "toolErrors": [],
+          "error": null,
+          "checksum": "c8844e86ef37013fb8b83f01bef036c3235a228e96d37b6cc28d5e3fddfd2f5f",
+          "agentVersion": "1.0.4",
+          "resultFile": "job/csv-parser__NPPzQJn/result.json"
+        },
+        {
+          "id": "money-split__RdDk5W3",
+          "task": "money-split",
+          "status": "passed",
+          "reward": 1,
+          "seconds": 26.224,
+          "setupSeconds": 9.929,
+          "inputTokens": 9481,
+          "outputTokens": 2685,
+          "budgetExhausted": false,
+          "outputBudgetExhausted": false,
+          "lastStopReason": "stop",
+          "toolErrors": [],
+          "error": null,
+          "checksum": "b339a74df700b64c979e161e32ecc579196d6914f9bb2f8ebc46e8f6edecddc2",
+          "agentVersion": "1.0.4",
+          "resultFile": "job/money-split__RdDk5W3/result.json"
+        },
+        {
+          "id": "ticket-triage__V9X2qAR",
+          "task": "ticket-triage",
+          "status": "failed",
+          "reward": 0,
+          "seconds": 25.563,
+          "setupSeconds": 5.466,
+          "inputTokens": 9930,
+          "outputTokens": 2578,
+          "budgetExhausted": false,
+          "outputBudgetExhausted": false,
+          "lastStopReason": "stop",
+          "toolErrors": [
+            {
+              "tool": "bash",
+              "message": "/bin/bash: line 1: python3: command not found\n\n\nCommand exited with code 127"
+            }
+          ],
+          "error": null,
+          "checksum": "9b82f83b47049baed8b59312f404f7016f8e74d019bb5ed12f3d227c5f89f4bf",
+          "agentVersion": "1.0.4",
+          "resultFile": "job/ticket-triage__V9X2qAR/result.json"
+        }
+      ]
+    },
+    {
+      "id": "a6ffd6e4-fdb9-4ac1-8d64-4a9797dbcec1",
+      "label": "8,192 tokens \u00b7 900s deadline",
+      "source": "2026-10-15-ryzen-lfm2.5-24b/verified-8192.json",
+      "config": {
+        "kind": "tasks",
+        "endpoint": "http://localhost:11434",
+        "model": "lfm2.5:24b",
+        "tasks": [
+          "money-split",
+          "csv-parser",
+          "ticket-triage"
+        ],
+        "repeats": 1,
+        "maxTurns": 24,
+        "maxTokens": 8192,
+        "contextWindow": 131072,
+        "timeout": 900,
+        "reasoning": "none",
+        "temperature": 0,
+        "phases": [
+          "prefill",
+          "generation"
+        ],
+        "sizes": [
+          256,
+          2048,
+          8192
+        ],
+        "depths": [
+          0
+        ],
+        "concurrency": [
+          1,
+          2,
+          4
+        ],
+        "genTokens": 256
+      },
+      "summary": {
+        "expected": 3,
+        "completed": 3,
+        "passed": 1,
+        "failed": 2,
+        "setupErrors": 0,
+        "errors": 0,
+        "successRate": 0.3333333333333333,
+        "medianSeconds": 33.011,
+        "inputTokens": 25779,
+        "outputTokens": 13911
+      },
+      "wallSeconds": 218.214,
+      "trials": [
+        {
+          "id": "csv-parser__i4we5vE",
+          "task": "csv-parser",
+          "status": "failed",
+          "reward": 0,
+          "seconds": 94.456,
+          "setupSeconds": 5.197,
+          "inputTokens": 4611,
+          "outputTokens": 8268,
+          "budgetExhausted": false,
+          "outputBudgetExhausted": true,
+          "lastStopReason": "length",
+          "toolErrors": [],
+          "error": null,
+          "checksum": "c8844e86ef37013fb8b83f01bef036c3235a228e96d37b6cc28d5e3fddfd2f5f",
+          "agentVersion": "1.0.4",
+          "resultFile": "job/csv-parser__i4we5vE/result.json"
+        },
+        {
+          "id": "money-split__HMRCNqC",
+          "task": "money-split",
+          "status": "passed",
+          "reward": 1,
+          "seconds": 33.011,
+          "setupSeconds": 5.585,
+          "inputTokens": 15648,
+          "outputTokens": 3488,
+          "budgetExhausted": false,
+          "outputBudgetExhausted": false,
+          "lastStopReason": "stop",
+          "toolErrors": [
+            {
+              "tool": "bash",
+              "message": "file:///app/split.mjs:26\nassert(r1[0] >= r1[1] && r1[1] >= r2[2], 'order (earlier get more)');\n                                  ^\n\nReferenceError: Cannot access 'r2' before initialization\n    at file:///app/split.mjs:26:35\n    at ModuleJob.run (node:internal/modules/esm/module_job:439:25)\n    at async node:internal/modules/esm/loader:643:26\n    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)\n\nNode.js v24.19.0\n\n\nCommand exited with code 1"
+            }
+          ],
+          "error": null,
+          "checksum": "b339a74df700b64c979e161e32ecc579196d6914f9bb2f8ebc46e8f6edecddc2",
+          "agentVersion": "1.0.4",
+          "resultFile": "job/money-split__HMRCNqC/result.json"
+        },
+        {
+          "id": "ticket-triage__mcFq7Vo",
+          "task": "ticket-triage",
+          "status": "failed",
+          "reward": 0,
+          "seconds": 22.68,
+          "setupSeconds": 5.576,
+          "inputTokens": 5520,
+          "outputTokens": 2155,
+          "budgetExhausted": false,
+          "outputBudgetExhausted": false,
+          "lastStopReason": "stop",
+          "toolErrors": [],
+          "error": null,
+          "checksum": "9b82f83b47049baed8b59312f404f7016f8e74d019bb5ed12f3d227c5f89f4bf",
+          "agentVersion": "1.0.4",
+          "resultFile": "job/ticket-triage__mcFq7Vo/result.json"
+        }
+      ]
+    },
+    {
+      "id": "de9b545f-7790-4193-a5cf-ff0a638c2a91",
+      "label": "16,384 tokens \u00b7 900s deadline",
+      "source": "2026-10-15-ryzen-lfm2.5-24b/verified-16384.json",
+      "config": {
+        "kind": "tasks",
+        "endpoint": "http://localhost:11434",
+        "model": "lfm2.5:24b",
+        "tasks": [
+          "money-split",
+          "csv-parser",
+          "ticket-triage"
+        ],
+        "repeats": 1,
+        "maxTurns": 24,
+        "maxTokens": 16384,
+        "contextWindow": 131072,
+        "timeout": 900,
+        "reasoning": "none",
+        "temperature": 0,
+        "phases": [
+          "prefill",
+          "generation"
+        ],
+        "sizes": [
+          256,
+          2048,
+          8192
+        ],
+        "depths": [
+          0
+        ],
+        "concurrency": [
+          1,
+          2,
+          4
+        ],
+        "genTokens": 256
+      },
+      "summary": {
+        "expected": 3,
+        "completed": 3,
+        "passed": 1,
+        "failed": 1,
+        "setupErrors": 0,
+        "errors": 1,
+        "successRate": 0.5,
+        "medianSeconds": 30.169,
+        "inputTokens": 149666,
+        "outputTokens": 60997
+      },
+      "wallSeconds": 836.356,
+      "trials": [
+        {
+          "id": "csv-parser__5FBHEJS",
+          "task": "csv-parser",
+          "status": "error",
+          "reward": null,
+          "seconds": 726.01,
+          "setupSeconds": 5.288,
+          "inputTokens": 132760,
+          "outputTokens": 55375,
+          "budgetExhausted": true,
+          "outputBudgetExhausted": false,
+          "lastStopReason": "error",
+          "toolErrors": [
+            {
+              "tool": "bash",
+              "message": "Test 1 (empty): []\nTest 2 (simple): [[\"a\",\"b\",\"c\"]]\nTest 3 (quoted comma): [[\"a\",\"b\",\"c\",\"d\"]]\nTest 4 (CRLF): [[\"a\",\"b\"],[\"c\",\"d\"]]\nfile:///app/csv.mjs:100\n    throw new SyntaxError('Unclosed quoted field');\n          ^\n\nSyntaxError: Unclosed quoted field\n    at splitRecord (file:///app/csv.mjs:100:11)\n    at parseCSV (file:///app/csv.mjs:9:17)\n    at file:///app/test.mjs:18:12\n    at ModuleJob.run (node:internal/modules/esm/module_job:439:25)\n    at async node:internal/modules/esm/loader:643:26"
+            },
+            {
+              "tool": "bash",
+              "message": "Test 3: [[\"a\",\"b\",\"c\",\"d\"]]\nfile:///app/csv.mjs:100\n    throw new SyntaxError('Unclosed quoted field');\n          ^\n\nSyntaxError: Unclosed quoted field\n    at splitRecord (file:///app/csv.mjs:100:11)\n    at Module.parseCSV (file:///app/csv.mjs:9:17)\n    at [eval]:4:43\n\nNode.js v24.19.0\n\n\nCommand exited with code 1"
+            },
+            {
+              "tool": "bash",
+              "message": "file:///app/csv.mjs:100\n    throw new SyntaxError('Unclosed quoted field');\n          ^\n\nSyntaxError: Unclosed quoted field\n    at splitRecord (file:///app/csv.mjs:100:11)\n    at Module.parseCSV (file:///app/csv.mjs:9:17)\n    at [eval]:3:15\n\nNode.js v24.19.0\n\n\nCommand exited with code 1"
+            },
+            {
+              "tool": "bash",
+              "message": "Test 1 (empty): []\nTest 2 (simple): [[\"a\",\"b\",\"c\"]]\nTest 3 (quoted comma): [[\"a\",\"b\",\"c\",\"d\"]]\nTest 4 (CRLF): [[\"a\",\"b\"],[\"c\",\"d\"]]\nfile:///app/csv.mjs:96\n    throw new SyntaxError('Unclosed quoted field');\n          ^\n\nSyntaxError: Unclosed quoted field\n    at splitRecord (file:///app/csv.mjs:96:11)\n    at parseCSV (file:///app/csv.mjs:9:17)\n    at file:///app/test.mjs:18:12\n    at ModuleJob.run (node:internal/modules/esm/module_job:439:25)\n    at async node:internal/modules/esm/loader:643:26\n "
+            },
+            {
+              "tool": "bash",
+              "message": "file:///app/csv.mjs:96\n    throw new SyntaxError('Unclosed quoted field');\n          ^\n\nSyntaxError: Unclosed quoted field\n    at splitRecord (file:///app/csv.mjs:96:11)\n    at Module.parseCSV (file:///app/csv.mjs:9:17)\n    at [eval]:3:20\n\nNode.js v24.19.0\n\n\nCommand exited with code 1"
+            }
+          ],
+          "error": {
+            "type": "ModelRequestError",
+            "message": "This operation was aborted"
+          },
+          "checksum": "c8844e86ef37013fb8b83f01bef036c3235a228e96d37b6cc28d5e3fddfd2f5f",
+          "agentVersion": "1.0.4",
+          "resultFile": "job/csv-parser__5FBHEJS/result.json"
+        },
+        {
+          "id": "money-split__29jihbP",
+          "task": "money-split",
+          "status": "passed",
+          "reward": 1,
+          "seconds": 30.169,
+          "setupSeconds": 5.292,
+          "inputTokens": 11548,
+          "outputTokens": 3192,
+          "budgetExhausted": false,
+          "outputBudgetExhausted": false,
+          "lastStopReason": "stop",
+          "toolErrors": [],
+          "error": null,
+          "checksum": "b339a74df700b64c979e161e32ecc579196d6914f9bb2f8ebc46e8f6edecddc2",
+          "agentVersion": "1.0.4",
+          "resultFile": "job/money-split__29jihbP/result.json"
+        },
+        {
+          "id": "ticket-triage__7FRRfrY",
+          "task": "ticket-triage",
+          "status": "failed",
+          "reward": 0,
+          "seconds": 24.11,
+          "setupSeconds": 5.327,
+          "inputTokens": 5358,
+          "outputTokens": 2430,
+          "budgetExhausted": false,
+          "outputBudgetExhausted": false,
+          "lastStopReason": "stop",
+          "toolErrors": [],
+          "error": null,
+          "checksum": "9b82f83b47049baed8b59312f404f7016f8e74d019bb5ed12f3d227c5f89f4bf",
+          "agentVersion": "1.0.4",
+          "resultFile": "job/ticket-triage__7FRRfrY/result.json"
+        }
+      ]
+    },
+    {
+      "id": "6b5656a2-4e3a-4062-928d-9c74354affcb",
+      "label": "32,768 tokens \u00b7 900s \u00b7 adapter 2",
+      "source": "2026-10-15-ryzen-lfm2.5-24b/verified-32768.json",
+      "config": {
+        "kind": "tasks",
+        "endpoint": "http://localhost:11434",
+        "model": "lfm2.5:24b",
+        "tasks": [
+          "money-split",
+          "csv-parser",
+          "ticket-triage"
+        ],
+        "repeats": 1,
+        "maxTurns": 24,
+        "maxTokens": 32768,
+        "contextWindow": 131072,
+        "timeout": 900,
+        "reasoning": "none",
+        "temperature": 0,
+        "phases": [
+          "prefill",
+          "generation"
+        ],
+        "sizes": [
+          256,
+          2048,
+          8192
+        ],
+        "depths": [
+          0
+        ],
+        "concurrency": [
+          1,
+          2,
+          4
+        ],
+        "genTokens": 256
+      },
+      "versions": {
+        "studio": "0.4.0",
+        "harbor": "0.24.0",
+        "pi": "1.0.4",
+        "agentNative": "0.201.1",
+        "adapter": "2"
+      },
+      "summary": {
+        "expected": 3,
+        "completed": 3,
+        "passed": 1,
+        "failed": 2,
+        "setupErrors": 0,
+        "errors": 0,
+        "successRate": 0.3333333333333333,
+        "medianSeconds": 27.383,
+        "inputTokens": 61182,
+        "outputTokens": 49091
+      },
+      "wallSeconds": 762.35,
+      "trials": [
+        {
+          "id": "csv-parser__af6b7qT",
+          "task": "csv-parser",
+          "status": "failed",
+          "reward": 0,
+          "seconds": 647.69,
+          "setupSeconds": 5.382,
+          "inputTokens": 46179,
+          "outputTokens": 44438,
+          "budgetExhausted": false,
+          "outputBudgetExhausted": false,
+          "lastStopReason": "stop",
+          "thinkingObserved": true,
+          "requestReasoningEffort": "none",
+          "toolErrors": [
+            {
+              "tool": "bash",
+              "message": "Test 1: [[\"a\",\"b\",\"c\"],[\"1\",\"2\",\"3\"]]\nTest 2: []\nTest 3: [[\"a\",\"b\"],[\"1\",\"2\"]]\nTest 4: [[\"a\",\"b\",\"c\",\"d\"],[\"1\",\"e\",\"f\",\"3\"]]\nTest 5: [[\"a\",\"b\\nc\",\"d\"],[\"1\",\"e\\nf\",\"3\"]]\nfile:///app/csv.mjs:80\n      throw new SyntaxError('Unclosed quoted field');\n            ^\n\nSyntaxError: Unclosed quoted field\n    at file:///app/csv.mjs:80:13\n    at Array.map (<anonymous>)\n    at parseCSV (file:///app/csv.mjs:48:18)\n    at file:///app/test.mjs:19:39\n    at ModuleJob.run (node:internal/modules/esm/module_job:439"
+            },
+            {
+              "tool": "bash",
+              "message": "1: [[\"a\",\"b\",\"c\"],[\"1\",\"2\",\"3\"]]\n2: []\n3: [[\"a\",\"b\"],[\"1\",\"2\"]]\n4: [[\"a\",\"b\",\"c\",\"d\"],[\"1\",\"e\",\"f\",\"3\"]]\n5: [[\"a\",\"b\\nc\",\"d\"],[\"1\",\"e\\nf\",\"3\"]]\nfile:///app/csv.mjs:80\n      throw new SyntaxError('Unclosed quoted field');\n            ^\n\nSyntaxError: Unclosed quoted field\n    at file:///app/csv.mjs:80:13\n    at Array.map (<anonymous>)\n    at parseCSV (file:///app/csv.mjs:48:18)\n    at file:///app/[eval1]:9:34\n    at ModuleJob.run (node:internal/modules/esm/module_job:439:25)\n    at async node:inte"
+            },
+            {
+              "tool": "bash",
+              "message": "file:///app/csv.mjs:80\n      throw new SyntaxError('Unclosed quoted field');\n            ^\n\nSyntaxError: Unclosed quoted field\n    at file:///app/csv.mjs:80:13\n    at Array.map (<anonymous>)\n    at parseCSV (file:///app/csv.mjs:48:18)\n    at file:///app/[eval1]:3:39\n    at ModuleJob.run (node:internal/modules/esm/module_job:439:25)\n    at async node:internal/modules/esm/loader:224:26\n    at async ModuleLoader.executeModuleJob (node:internal/modules/esm/loader:221:20)\n    at async asyncRunEntryPo"
+            }
+          ],
+          "error": null,
+          "checksum": "c8844e86ef37013fb8b83f01bef036c3235a228e96d37b6cc28d5e3fddfd2f5f",
+          "agentVersion": "1.0.4",
+          "resultFile": "job/csv-parser__af6b7qT/result.json"
+        },
+        {
+          "id": "money-split__XZbZijQ",
+          "task": "money-split",
+          "status": "passed",
+          "reward": 1,
+          "seconds": 27.383,
+          "setupSeconds": 5.294,
+          "inputTokens": 9481,
+          "outputTokens": 2685,
+          "budgetExhausted": false,
+          "outputBudgetExhausted": false,
+          "lastStopReason": "stop",
+          "thinkingObserved": true,
+          "requestReasoningEffort": "none",
+          "toolErrors": [],
+          "error": null,
+          "checksum": "b339a74df700b64c979e161e32ecc579196d6914f9bb2f8ebc46e8f6edecddc2",
+          "agentVersion": "1.0.4",
+          "resultFile": "job/money-split__XZbZijQ/result.json"
+        },
+        {
+          "id": "ticket-triage__hqHXFAv",
+          "task": "ticket-triage",
+          "status": "failed",
+          "reward": 0,
+          "seconds": 19.848,
+          "setupSeconds": 5.294,
+          "inputTokens": 5522,
+          "outputTokens": 1968,
+          "budgetExhausted": false,
+          "outputBudgetExhausted": false,
+          "lastStopReason": "stop",
+          "thinkingObserved": true,
+          "requestReasoningEffort": "none",
+          "toolErrors": [],
+          "error": null,
+          "checksum": "9b82f83b47049baed8b59312f404f7016f8e74d019bb5ed12f3d227c5f89f4bf",
+          "agentVersion": "1.0.4",
+          "resultFile": "job/ticket-triage__hqHXFAv/result.json"
+        }
+      ]
+    }
+  ]
+}

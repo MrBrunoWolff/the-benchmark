@@ -1,0 +1,37 @@
+{
+  "fixture": "harness/tests/pi-runtime.mjs",
+  "image": "the-benchmark-pi:1.0.4",
+  "network": "none; mock provider on container loopback",
+  "results": [
+    {
+      "scenario": "turn-cap",
+      "requests": 2,
+      "cleanExit": true,
+      "artifactRetained": true,
+      "reasoningEffort": "none",
+      "budgetMarkers": 1,
+      "expectedBudgetAborts": 1,
+      "providerErrors": 0
+    },
+    {
+      "scenario": "natural-completion",
+      "requests": 2,
+      "cleanExit": true,
+      "artifactRetained": true,
+      "reasoningEffort": "none",
+      "budgetMarkers": 0,
+      "expectedBudgetAborts": 0,
+      "providerErrors": 0
+    },
+    {
+      "scenario": "provider-error",
+      "requests": 2,
+      "cleanExit": true,
+      "artifactRetained": true,
+      "reasoningEffort": "none",
+      "budgetMarkers": 0,
+      "expectedBudgetAborts": 0,
+      "providerErrors": 1
+    }
+  ]
+}
