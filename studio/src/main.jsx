@@ -119,7 +119,7 @@ function App() {
       </nav>
       <div className="sidebar-label">RECENT RUNS</div>
       <div className="recent-runs">{runs.slice(0, 7).map(run => <button className={`recent ${selected === run.id ? 'selected' : ''}`} key={run.id} onClick={() => openRun(run.id)}><span className={`run-dot ${run.status}`}/><span>{run.config.model}<small>{run.config.kind === 'tasks' ? 'Verified tasks' : 'Serving performance'} · {date(run.createdAt)}</small></span></button>)}{!runs.length && <p className="sidebar-empty">Your experiments will appear here.</p>}</div>
-      <div className="sidebar-bottom"><span className="dot"/>Runs stay on this machine<small>Studio 0.5 · Local benchmarks</small></div>
+      <div className="sidebar-bottom"><span className="dot"/>Runs stay on this machine<small>Studio 0.6 · Local benchmarks</small></div>
     </aside>
     <main>
       <header className="topbar"><span>Workspace <span className="slash">/</span> {page === 'new' ? 'New benchmark' : page === 'history' ? 'Run history' : page === 'compare' ? 'Compare models' : 'Run inspector'}</span><span className="top-local"><span className="dot"/>LOCAL INFERENCE</span></header>
@@ -185,7 +185,7 @@ function App() {
 
           <section className="panel result-panel"><div className="table-scroll"><table><thead><tr><th><span className="sr-only">Compare</span></th><th>Model</th><th>Benchmark</th><th>Status</th><th>Success</th><th>Started</th><th/></tr></thead><tbody>{runs.filter(run => page !== 'compare' || run.config.kind === 'tasks').map(run => <tr key={run.id}><td><input type="checkbox" aria-label={`Compare ${run.config.model}, run ${run.id}`} disabled={run.config.kind !== 'tasks' || busy(run.status)} checked={compare.includes(run.id)} onChange={() => setCompare(previous => toggleComparison(previous, run, runs))}/></td><td><strong>{run.config.model}</strong><small>{run.id.slice(0, 8)}</small></td><td>{run.config.kind === 'tasks' ? 'Verified tasks' : 'Serving performance'}</td><td><Badge status={run.status}/></td><td>{percent(run.summary?.successRate)}{run.summary && <small>{run.summary.passed + run.summary.failed}/{run.summary.expected} graded</small>}</td><td>{date(run.createdAt)}</td><td><button className="text-button" onClick={() => openRun(run.id)} aria-label={`Inspect run ${run.id}`}><Icon name="arrow"/></button></td></tr>)}{!runs.length && <tr><td colSpan="7" className="empty-cell">Your first benchmark starts here.<button className="text-button" onClick={goNew}>Create a run →</button></td></tr>}</tbody></table></div></section>
         </>}
-        <footer><span>the-benchmark</span><a href="/privacy/">Privacy</a><span>Local models. Observable work.</span><span className="mono">v0.5.0</span></footer>
+        <footer><span>the-benchmark</span><a href="/privacy/">Privacy</a><span>Local models. Observable work.</span><span className="mono">v0.6.0</span></footer>
       </div>
     </main>
     {file && <div className="modal-backdrop" onClick={() => setFile(null)}><section className="file-modal" role="dialog" aria-modal="true" aria-label="File inspector" onClick={e => e.stopPropagation()}><div className="panel-heading"><h2>{file.path}</h2><button className="text-button" onClick={() => setFile(null)} aria-label="Close file inspector"><Icon name="close"/></button></div><pre>{file.text}</pre></section></div>}

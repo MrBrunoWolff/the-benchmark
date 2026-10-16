@@ -2,7 +2,7 @@
 
 [Project overview](../README.md)
 
-## Local benchmark Studio (0.5)
+## Local benchmark Studio (0.6)
 
 The optional Studio adds a local UI for independently verified coding and file-based
 agent tasks. It also runs the existing prefill, generation, concurrency, agentic,
