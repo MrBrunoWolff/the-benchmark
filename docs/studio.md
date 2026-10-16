@@ -96,6 +96,31 @@ budgets, server configuration and hardware. Model IDs alone do not identify exac
 weights or quantization; keep your server's model configuration when reporting scores.
 A cancelled run retains its logs; restarting Studio marks unfinished runs interrupted.
 
+Open **Compare models** to select saved verified-task runs from different models.
+One run per model is selected at a time; selecting another run of that model
+replaces its previous selection. At least two models are needed for the charts.
+Grouped bars show verified passes divided by planned attempts and median execution
+time for passing attempts only. Errors, missing results and tasks absent from a
+run remain explicit in the task table. Click a bar or table result to inspect the
+run's transcripts, artifacts and verifier output. Configuration differences list
+the affected settings, including budgets, repeats, task/harness versions and the
+recorded environment. Missing server metadata cannot establish compatibility;
+review quantization and server settings before drawing conclusions.
+
+**Functional checks** shows the labelled checks within each task, including
+expected and actual values for failed assertions. Every check runs even after an
+earlier assertion fails. A task still passes only when every check passes; the
+partial check count is diagnostic and does not replace the verified task score.
+Check totals combine only reports that were actually recorded, and show attempt
+coverage so missing reports are not mistaken for zero or full credit.
+
+Historical runs without per-check reports show **Details unavailable**. A separate
+`verifier/check-replay.json` can hold diagnostics from explicitly replaying saved
+artifacts against the current verifier. Studio labels these as **artifact replay**
+and preserves the original reward, task status, transcripts and verifier logs.
+Reports record a verifier hash and evaluation time; differing known check verifier
+revisions are listed among comparison differences. A replay is not a new model attempt.
+
 The older `agentic` phase remains a tool-calling/latency smoke test with a virtual
 filesystem. Use **Verified tasks** for actual command execution and outcome scoring.
 All CLI runs now save `results.json` alongside their HTML report.

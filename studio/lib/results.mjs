@@ -1,6 +1,7 @@
 import { readdirSync, readFileSync, lstatSync, existsSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { isBudgetAbort } from '../../harness/pi-extension.mjs';
+import { parseCheckReport, summarizeChecks } from './checks.mjs';
 
 export function walkFiles(root, limit = 800, depth = 0) {
   if (!existsSync(root) || depth > 7) return [];
@@ -63,8 +64,13 @@ export function taskResults(directory) {
     } catch {}
     const setupError = error && error.exception_type !== 'ModelRequestError' && !result.agent_execution?.started_at;
     const status = setupError ? 'setup_error' : error ? 'error' : reward === 1 ? 'passed' : reward === 0 ? 'failed' : 'ungraded';
+    const verifierReport = readJson(file.replace(/result.json$/, 'verifier/check-results.json'));
+    const checks = verifierReport
+      ? parseCheckReport(verifierReport)
+      : parseCheckReport(readJson(file.replace(/result.json$/, 'verifier/check-replay.json')), 'artifact-replay');
     trials.push({
       id: result.trial_name, task: result.task_name, status, reward,
+      checks,
       seconds: duration(result.agent_execution), setupSeconds: duration(result.environment_setup),
       inputTokens: result.agent_result?.n_input_tokens ?? null,
       outputTokens: result.agent_result?.n_output_tokens ?? null,
@@ -90,6 +96,7 @@ export function summarize(trials, expected) {
   return { expected, completed: trials.length, passed, failed: trials.filter(t => t.status === 'failed').length,
     setupErrors, errors: trials.filter(t => t.status === 'error').length,
     successRate: attempted ? passed / attempted : null,
+    checks: summarizeChecks(trials, expected),
     medianSeconds: median(trials.map(t => t.seconds)), inputTokens: sumKnown('inputTokens'), outputTokens: sumKnown('outputTokens'),
   };
 }

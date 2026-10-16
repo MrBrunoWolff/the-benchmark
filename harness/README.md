@@ -26,6 +26,10 @@ Installation and first image builds need internet; inference and grading are loc
 Task instructions and initial files belong in `tasks/local-v1/<id>/`. Tests are built
 into separate verifier images, and reference solutions stay outside the agent image.
 `tests/verify.mjs` runs the functional checks and writes the numeric reward afterward.
+It also saves `check-results.json` with labelled per-case outcomes, expected/actual
+assertion values, a verifier hash and evaluation time. Tests continue after a failed
+case, but partial success never earns a passing task reward. A crashed or timed-out
+checker without a complete report fails the task and leaves check details unavailable.
 For a new task, add suite metadata and the allowed task ID in Studio's schema, then
 validate both its reference solution (pass) and unchanged fixture (fail) with Harbor.
 Use `HARBOR_TELEMETRY=off` for direct Harbor commands, as Studio already does.

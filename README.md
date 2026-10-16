@@ -31,6 +31,19 @@ npx -y the-benchmark studio
 
 Open [localhost:4310](http://localhost:4310). Studio requires Node.js 22.22 or later and npm; its first launch installs the optional UI. Independently verified tasks also require Docker and internet access for initial runtime setup. Native Linux and Windows verified-task execution are not yet validated; see the [Studio guide](https://github.com/MrBrunoWolff/the-benchmark/blob/main/docs/studio.md).
 
+Both modes work directly from the package, without cloning or a global install:
+
+| Mode | npm | Bun |
+| --- | --- | --- |
+| CLI only | `npx -y the-benchmark` | `bunx the-benchmark` |
+| Local UI | `npx -y the-benchmark studio` | `bunx the-benchmark studio` |
+| Help | `npx -y the-benchmark --help` | `bunx the-benchmark --help` |
+
+In Studio, **Compare models** charts saved verified-task runs by task. Select one
+run per model; selecting a newer attempt replaces that model's previous selection.
+The charts show passes out of all planned attempts and median time for passing
+attempts, with configuration differences and errors visible alongside the results.
+
 ## Features
 
 - Dependency-free CLI for Ollama, LM Studio and compatible servers.
