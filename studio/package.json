@@ -21,6 +21,9 @@
     "node": ">=22.22"
   },
   "overrides": {
+    "@agent-native/core": {
+      "minimatch": "11.0.3"
+    },
     "@anthropic-ai/sdk": "0.91.1",
     "@better-auth/drizzle-adapter": "1.7.12",
     "better-auth": "1.7.12",
