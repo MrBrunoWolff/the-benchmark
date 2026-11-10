@@ -1,0 +1,106 @@
+{
+  "schemaVersion": 1,
+  "complete": true,
+  "checks": [
+    {
+      "id": "csv-1",
+      "label": "Empty input",
+      "status": "failed",
+      "message": "Expected values to be strictly deep-equal:\n+ actual - expected\n\n+ [\n+   [\n+     ''\n+   ]\n+ ]\n- []\n",
+      "expected": "[]",
+      "actual": "[ [ '' ] ]"
+    },
+    {
+      "id": "csv-2",
+      "label": "Comma-separated records",
+      "status": "passed"
+    },
+    {
+      "id": "csv-3",
+      "label": "CRLF records and trailing separator",
+      "status": "failed",
+      "message": "Expected values to be strictly deep-equal:\n+ actual - expected\n\n  [\n    [\n      'a',\n+     'b\\r'\n-     'b'\n    ],\n    [\n      'c',\n+     'd\\r'\n-     'd'\n    ],\n+   [\n+     ''\n+   ]\n  ]\n",
+      "expected": "[ [ 'a', 'b' ], [ 'c', 'd' ] ]",
+      "actual": "[ [ 'a', 'b\\r' ], [ 'c', 'd\\r' ], [ '' ] ]"
+    },
+    {
+      "id": "csv-4",
+      "label": "Quoted comma",
+      "status": "failed",
+      "message": "Expected values to be strictly deep-equal:\n+ actual - expected\n\n  [\n    [\n+     '\"hello',\n+     ' world\"',\n-     'hello, world',\n      'x'\n    ]\n  ]\n",
+      "expected": "[ [ 'hello, world', 'x' ] ]",
+      "actual": "[ [ '\"hello', ' world\"', 'x' ] ]"
+    },
+    {
+      "id": "csv-5",
+      "label": "Escaped double quotes",
+      "status": "failed",
+      "message": "Expected values to be strictly deep-equal:\n+ actual - expected\n\n  [\n    [\n+     '\"say \"\"hi\"\"\"',\n-     'say \"hi\"',\n      'y'\n    ]\n  ]\n",
+      "expected": "[ [ 'say \"hi\"', 'y' ] ]",
+      "actual": "[ [ '\"say \"\"hi\"\"\"', 'y' ] ]"
+    },
+    {
+      "id": "csv-6",
+      "label": "Quoted LF newline",
+      "status": "failed",
+      "message": "Expected values to be strictly deep-equal:\n+ actual - expected\n\n  [\n    [\n+     '\"line1'\n+   ],\n+   [\n+     'line2\"',\n-     'line1\\nline2',\n      'z'\n    ]\n  ]\n",
+      "expected": "[ [ 'line1\\nline2', 'z' ] ]",
+      "actual": "[ [ '\"line1' ], [ 'line2\"', 'z' ] ]"
+    },
+    {
+      "id": "csv-7",
+      "label": "Trailing empty fields",
+      "status": "passed"
+    },
+    {
+      "id": "csv-8",
+      "label": "No extra row after trailing newline",
+      "status": "failed",
+      "message": "Expected values to be strictly deep-equal:\n+ actual - expected\n\n  [\n    [\n      'a',\n      'b'\n    ],\n+   [\n+     ''\n+   ]\n  ]\n",
+      "expected": "[ [ 'a', 'b' ] ]",
+      "actual": "[ [ 'a', 'b' ], [ '' ] ]"
+    },
+    {
+      "id": "csv-9",
+      "label": "Spaces and empty quoted fields",
+      "status": "failed",
+      "message": "Expected values to be strictly deep-equal:\n+ actual - expected\n\n  [\n    [\n      ' ',\n+     '\"\"',\n-     '',\n      'x'\n    ]\n  ]\n",
+      "expected": "[ [ ' ', '', 'x' ] ]",
+      "actual": "[ [ ' ', '\"\"', 'x' ] ]"
+    },
+    {
+      "id": "csv-10",
+      "label": "Quoted CRLF newline",
+      "status": "failed",
+      "message": "Expected values to be strictly deep-equal:\n+ actual - expected\n\n  [\n    [\n+     '\"a\\r'\n+   ],\n+   [\n+     'b\"',\n-     'a\\r\\nb',\n      'c'\n    ]\n  ]\n",
+      "expected": "[ [ 'a\\r\\nb', 'c' ] ]",
+      "actual": "[ [ '\"a\\r' ], [ 'b\"', 'c' ] ]"
+    },
+    {
+      "id": "csv-11",
+      "label": "Single empty quoted field",
+      "status": "failed",
+      "message": "Expected values to be strictly deep-equal:\n+ actual - expected\n\n  [\n    [\n+     '\"\"'\n-     ''\n    ]\n  ]\n",
+      "expected": "[ [ '' ] ]",
+      "actual": "[ [ '\"\"' ] ]"
+    },
+    {
+      "id": "csv-12",
+      "label": "Single empty record",
+      "status": "failed",
+      "message": "Expected values to be strictly deep-equal:\n+ actual - expected\n\n  [\n    [\n      ''\n    ],\n+   [\n+     ''\n+   ]\n  ]\n",
+      "expected": "[ [ '' ] ]",
+      "actual": "[ [ '' ], [ '' ] ]"
+    },
+    {
+      "id": "unclosed-quote",
+      "label": "Reject unclosed quoted field",
+      "status": "failed",
+      "message": "Missing expected exception (SyntaxError).",
+      "expected": "[Function: SyntaxError]",
+      "actual": "undefined"
+    }
+  ],
+  "verifierHash": "ee57085a94d0499764337ea70f91dcda1febd2cef40317d8698264fd7ff1449f",
+  "evaluatedAt": "2026-11-10T18:12:30.167Z"
+}

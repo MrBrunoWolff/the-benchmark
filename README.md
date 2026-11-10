@@ -77,10 +77,32 @@ For maintainer validation, see [QUALITY.md](https://github.com/MrBrunoWolff/the-
 
 ## Latest recorded run
 
-Ryzen 7 5800X3D / RX 7900 XT with LFM2.5 24B on Ollama: 152.5 generation
-tokens/s. The separate three-task verified suite passed 1/3 at 32k output tokens
-per turn. See [results and budget comparisons](https://github.com/MrBrunoWolff/the-benchmark/blob/main/docs/results.md) and the
-[archived samples, artifacts and charts](https://github.com/MrBrunoWolff/the-benchmark/blob/main/results/README.md).
+On 2026-11-10, LFM2.5-24B-A2B Q4_K_M on LM Studio, with a 38,656-token
+loaded context and a Ryzen 7 5800X3D WSL client, generated a median **164.2
+tokens/s** at depth 0 (three samples; all output tokens were reported as
+thinking). Estimated prefill was 489.4 tokens/s for a 9,131-token prompt. Two
+concurrent requests achieved 183.5 aggregate tokens/s; four had a 112-second
+median time to first token, and all eight requests at the next level timed out
+after 180 seconds. These are measurements of this server setup, not general
+model limits.
+
+The tool-calling smoke test finished in five turns, without functional grading;
+its first turn waited 42 seconds for a token after the concurrency sweep. A
+separate [verified task run](https://github.com/MrBrunoWolff/the-benchmark/blob/main/results/2026-11-10-lmstudio-lfm2.5-24b/verified-8192.json)
+passed **1/3 tasks**: bill splitting passed, CSV parsing failed after hitting
+the 8,192-token output limit, and ticket triage misclassified one ticket.
+All three were graded, with no setup or execution errors. The run used one
+attempt per task, 24 turns, a 900-second deadline, and reasoning requested off;
+thinking was still observed. The prior Ollama run passed 1/3 at 32k output
+tokens per turn. See the [new raw CLI
+results](https://github.com/MrBrunoWolff/the-benchmark/blob/main/results/2026-11-10-lmstudio-lfm2.5-24b/cli-38656-context.json), the [earlier 8,192-context run](https://github.com/MrBrunoWolff/the-benchmark/blob/main/results/2026-11-10-lmstudio-lfm2.5-24b/cli.json), [results and budget
+comparisons](https://github.com/MrBrunoWolff/the-benchmark/blob/main/docs/results.md),
+and [archived samples, artifacts and charts](https://github.com/MrBrunoWolff/the-benchmark/blob/main/results/README.md).
+
+For the default CLI prefill sizes, load a context larger than 8,192 tokens (for
+example, 32,768) to leave room for the prompt and output. Match context, hardware,
+backend settings and task budgets when comparing runs; larger contexts can also
+change memory use and concurrency.
 
 ## License
 

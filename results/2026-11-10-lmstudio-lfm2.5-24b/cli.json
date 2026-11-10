@@ -1,0 +1,530 @@
+{
+  "target": "lmstudio",
+  "base": "http://localhost:1234",
+  "model": "lfm2.5-24b-a2b",
+  "runs": 3,
+  "depths": [
+    0
+  ],
+  "concurrency": [
+    1,
+    2,
+    4,
+    8
+  ],
+  "concTokens": 192,
+  "scenario": "bench",
+  "latencyMode": "generation",
+  "latencyMs": 53.693277999999964,
+  "totalS": 439.286738281,
+  "timings": [
+    {
+      "label": "Prompt processing",
+      "seconds": 4.8535553270000005
+    },
+    {
+      "label": "Generation",
+      "seconds": 5.358944654
+    },
+    {
+      "label": "Concurrency",
+      "seconds": 296.360861722
+    },
+    {
+      "label": "Agentic coding",
+      "seconds": 131.62412712199998
+    }
+  ],
+  "results": [
+    {
+      "phase": "prefill",
+      "size": 256,
+      "promptTokens": 309,
+      "ttftMs": 405.6998010000002,
+      "estPptMs": 352.00652300000024,
+      "prefillTps": 761.6469104454893,
+      "estTps": 877.8246419030132,
+      "spreadPct": 23.04544731980038,
+      "seconds": 1.5598188189999997,
+      "raw": [
+        {
+          "ttftMs": 404.56619,
+          "totalMs": 404.7425890000002,
+          "promptTokens": 309,
+          "outTokens": 1,
+          "reasoningTokens": 1,
+          "approximate": false,
+          "singleChunk": true,
+          "prefillTps": 763.7810762189495,
+          "genTps": null,
+          "peakTps": null,
+          "content": "",
+          "toolCalls": [],
+          "finishReason": "length"
+        },
+        {
+          "ttftMs": 748.671288,
+          "totalMs": 748.8531859999998,
+          "promptTokens": 309,
+          "outTokens": 1,
+          "reasoningTokens": 1,
+          "approximate": false,
+          "singleChunk": true,
+          "prefillTps": 412.73120119974465,
+          "genTps": null,
+          "peakTps": null,
+          "content": "",
+          "toolCalls": [],
+          "finishReason": "length"
+        },
+        {
+          "ttftMs": 405.6998010000002,
+          "totalMs": 405.82099000000017,
+          "promptTokens": 309,
+          "outTokens": 1,
+          "reasoningTokens": 1,
+          "approximate": false,
+          "singleChunk": true,
+          "prefillTps": 761.6469104454893,
+          "genTps": null,
+          "peakTps": null,
+          "content": "",
+          "toolCalls": [],
+          "finishReason": "length"
+        }
+      ]
+    },
+    {
+      "phase": "prefill",
+      "size": 2048,
+      "promptTokens": 2301,
+      "ttftMs": 947.7256219999999,
+      "estPptMs": 894.032344,
+      "prefillTps": 2427.9178979504263,
+      "estTps": 2573.732388366477,
+      "spreadPct": 11.77273449902768,
+      "seconds": 2.7081345860000003,
+      "raw": [
+        {
+          "ttftMs": 784.3150409999998,
+          "totalMs": 784.5202789999998,
+          "promptTokens": 2301,
+          "outTokens": 1,
+          "reasoningTokens": 1,
+          "approximate": false,
+          "singleChunk": true,
+          "prefillTps": 2933.770079260791,
+          "genTps": null,
+          "peakTps": null,
+          "content": "",
+          "toolCalls": [],
+          "finishReason": "length"
+        },
+        {
+          "ttftMs": 974.1309499999998,
+          "totalMs": 974.2613280000005,
+          "promptTokens": 2301,
+          "outTokens": 1,
+          "reasoningTokens": 1,
+          "approximate": false,
+          "singleChunk": true,
+          "prefillTps": 2362.105423300636,
+          "genTps": null,
+          "peakTps": null,
+          "content": "",
+          "toolCalls": [],
+          "finishReason": "length"
+        },
+        {
+          "ttftMs": 947.7256219999999,
+          "totalMs": 948.6338769999993,
+          "promptTokens": 2301,
+          "outTokens": 1,
+          "reasoningTokens": 1,
+          "approximate": false,
+          "singleChunk": true,
+          "prefillTps": 2427.9178979504263,
+          "genTps": null,
+          "peakTps": null,
+          "content": "",
+          "toolCalls": [],
+          "finishReason": "length"
+        }
+      ]
+    },
+    {
+      "phase": "prefill",
+      "size": 8192,
+      "promptTokens": null,
+      "ttftMs": 32.46375999999964,
+      "estPptMs": null,
+      "prefillTps": null,
+      "estTps": null,
+      "spreadPct": null,
+      "seconds": 0.5850293980000005,
+      "raw": [
+        {
+          "ttftMs": 523.7094850000003,
+          "totalMs": 523.7094850000003,
+          "promptTokens": null,
+          "outTokens": 0,
+          "reasoningTokens": 0,
+          "approximate": true,
+          "singleChunk": true,
+          "prefillTps": null,
+          "genTps": null,
+          "peakTps": null,
+          "content": "",
+          "toolCalls": [],
+          "finishReason": null
+        },
+        {
+          "ttftMs": 32.46375999999964,
+          "totalMs": 32.46375999999964,
+          "promptTokens": null,
+          "outTokens": 0,
+          "reasoningTokens": 0,
+          "approximate": true,
+          "singleChunk": true,
+          "prefillTps": null,
+          "genTps": null,
+          "peakTps": null,
+          "content": "",
+          "toolCalls": [],
+          "finishReason": null
+        },
+        {
+          "ttftMs": 26.319400999999743,
+          "totalMs": 26.319400999999743,
+          "promptTokens": null,
+          "outTokens": 0,
+          "reasoningTokens": 0,
+          "approximate": true,
+          "singleChunk": true,
+          "prefillTps": null,
+          "genTps": null,
+          "peakTps": null,
+          "content": "",
+          "toolCalls": [],
+          "finishReason": null
+        }
+      ]
+    },
+    {
+      "phase": "generation",
+      "depth": 0,
+      "ctxTokens": 104,
+      "outTokens": 256,
+      "ttftMs": 368.16267600000083,
+      "genTps": 168.0891753654018,
+      "spreadPct": 2.1394032595840713,
+      "peakTps": 172,
+      "reasoningTokens": 256,
+      "seconds": 5.3587179670000005,
+      "raw": [
+        {
+          "ttftMs": 70.63995900000009,
+          "totalMs": 1587.6918420000002,
+          "promptTokens": 104,
+          "outTokens": 256,
+          "reasoningTokens": 256,
+          "approximate": false,
+          "singleChunk": false,
+          "prefillTps": 1472.25453514207,
+          "genTps": 168.0891753654018,
+          "peakTps": 168,
+          "content": "",
+          "toolCalls": [],
+          "finishReason": "length"
+        },
+        {
+          "ttftMs": 368.16267600000083,
+          "totalMs": 1911.0182020000002,
+          "promptTokens": 104,
+          "outTokens": 256,
+          "reasoningTokens": 256,
+          "approximate": false,
+          "singleChunk": false,
+          "prefillTps": 282.4838224502686,
+          "genTps": 165.27795098294905,
+          "peakTps": 172,
+          "content": "",
+          "toolCalls": [],
+          "finishReason": "length"
+        },
+        {
+          "ttftMs": 381.112337999999,
+          "totalMs": 1859.6289559999987,
+          "promptTokens": 104,
+          "outTokens": 256,
+          "reasoningTokens": 256,
+          "approximate": false,
+          "singleChunk": false,
+          "prefillTps": 272.8854188918971,
+          "genTps": 172.47016157649983,
+          "peakTps": 174,
+          "content": "",
+          "toolCalls": [],
+          "finishReason": "length"
+        }
+      ]
+    },
+    {
+      "phase": "concurrent",
+      "slots": 1,
+      "aggTps": 128.7639254664503,
+      "outTotal": 192,
+      "overlap": 1,
+      "slotTps": 173.9287107611444,
+      "ttftMs": 392.6621919999998,
+      "ttftMaxMs": 392.6621919999998,
+      "scale": 1,
+      "effPct": 100,
+      "failed": 0,
+      "seconds": 1.4911008600000004,
+      "raw": [
+        {
+          "ttftMs": 392.6621919999998,
+          "totalMs": 1490.813263,
+          "promptTokens": 104,
+          "outTokens": 192,
+          "reasoningTokens": 192,
+          "approximate": false,
+          "singleChunk": false,
+          "prefillTps": 264.85870582620305,
+          "genTps": 173.9287107611444,
+          "peakTps": 175,
+          "content": "",
+          "toolCalls": [],
+          "finishReason": "length"
+        }
+      ]
+    },
+    {
+      "phase": "concurrent",
+      "slots": 2,
+      "aggTps": 217.84748603589827,
+      "outTotal": 384,
+      "overlap": 1.9982097590767576,
+      "slotTps": 138.89193199372966,
+      "ttftMs": 386.283528500001,
+      "ttftMaxMs": 386.3026340000015,
+      "scale": 1.6918363217550312,
+      "effPct": 84.59181608775155,
+      "failed": 0,
+      "seconds": 1.762701084999999,
+      "raw": [
+        {
+          "ttftMs": 386.26442300000053,
+          "totalMs": 1760.5743230000007,
+          "promptTokens": 104,
+          "outTokens": 192,
+          "reasoningTokens": 192,
+          "approximate": false,
+          "singleChunk": false,
+          "prefillTps": 269.2456095031042,
+          "genTps": 138.9788431270123,
+          "peakTps": 144,
+          "content": "",
+          "toolCalls": [],
+          "finishReason": "length"
+        },
+        {
+          "ttftMs": 386.3026340000015,
+          "totalMs": 1762.3335500000012,
+          "promptTokens": 104,
+          "outTokens": 192,
+          "reasoningTokens": 192,
+          "approximate": false,
+          "singleChunk": false,
+          "prefillTps": 269.2189771607915,
+          "genTps": 138.80502086044703,
+          "peakTps": 144,
+          "content": "",
+          "toolCalls": [],
+          "finishReason": "length"
+        }
+      ]
+    },
+    {
+      "phase": "concurrent",
+      "slots": 4,
+      "aggTps": 6.7904947107420375,
+      "outTotal": 768,
+      "overlap": 3.9947765566745885,
+      "slotTps": 98.35563056481416,
+      "ttftMs": 111155.225855,
+      "ttftMaxMs": 111159.132714,
+      "scale": 0.052736002619858884,
+      "effPct": 1.318400065496472,
+      "failed": 0,
+      "seconds": 113.099270777,
+      "raw": [
+        {
+          "ttftMs": 111155.414908,
+          "totalMs": 113098.14961800001,
+          "promptTokens": 104,
+          "outTokens": 192,
+          "reasoningTokens": 192,
+          "approximate": false,
+          "singleChunk": false,
+          "prefillTps": 0.9356269335693422,
+          "genTps": 98.31501903829142,
+          "peakTps": 104,
+          "content": "",
+          "toolCalls": [],
+          "finishReason": "length"
+        },
+        {
+          "ttftMs": 111155.036802,
+          "totalMs": 113097.318557,
+          "promptTokens": 104,
+          "outTokens": 192,
+          "reasoningTokens": 192,
+          "approximate": false,
+          "singleChunk": false,
+          "prefillTps": 0.9356301162065626,
+          "genTps": 98.33794685467745,
+          "peakTps": 104,
+          "content": "",
+          "toolCalls": [],
+          "finishReason": "length"
+        },
+        {
+          "ttftMs": 111159.132714,
+          "totalMs": 113098.835121,
+          "promptTokens": 104,
+          "outTokens": 192,
+          "reasoningTokens": 192,
+          "approximate": false,
+          "singleChunk": false,
+          "prefillTps": 0.9355956407790653,
+          "genTps": 98.46871319575622,
+          "peakTps": 104,
+          "content": "",
+          "toolCalls": [],
+          "finishReason": "length"
+        },
+        {
+          "ttftMs": 111154.55222700001,
+          "totalMs": 113096.13568800001,
+          "promptTokens": 104,
+          "outTokens": 192,
+          "reasoningTokens": 192,
+          "approximate": false,
+          "singleChunk": false,
+          "prefillTps": 0.9356341950585256,
+          "genTps": 98.37331427495086,
+          "peakTps": 104,
+          "content": "",
+          "toolCalls": [],
+          "finishReason": "length"
+        }
+      ]
+    },
+    {
+      "phase": "concurrent",
+      "slots": 8,
+      "aggTps": null,
+      "outTotal": 0,
+      "overlap": null,
+      "slotTps": null,
+      "ttftMs": null,
+      "ttftMaxMs": null,
+      "scale": 0,
+      "effPct": 0,
+      "failed": 8,
+      "seconds": 180.006089438,
+      "raw": []
+    },
+    {
+      "phase": "agentic",
+      "wallS": 131.62412712199998,
+      "turns": [
+        {
+          "turn": 1,
+          "ctxTok": 575,
+          "ttftMs": 108625.81588299997,
+          "outTok": 1422,
+          "genTps": 168.4604327819339,
+          "reasoningTok": 1313,
+          "seconds": 117.06103106399998,
+          "singleChunk": false,
+          "action": "plan(3 steps)"
+        },
+        {
+          "turn": 2,
+          "ctxTok": 690,
+          "ttftMs": 433.3813809999847,
+          "outTok": 518,
+          "genTps": 169.84766233397704,
+          "reasoningTok": 118,
+          "seconds": 3.4772855059999856,
+          "singleChunk": false,
+          "action": "write_file(index.html, 1.0 KB)"
+        },
+        {
+          "turn": 3,
+          "ctxTok": 1107,
+          "ttftMs": 137.10917299997527,
+          "outTok": 361,
+          "genTps": 168.44184856070603,
+          "reasoningTok": 8,
+          "seconds": 2.2743452759999783,
+          "singleChunk": false,
+          "action": "write_file(styles.css, 0.7 KB)"
+        },
+        {
+          "turn": 4,
+          "ctxTok": 1476,
+          "ttftMs": 137.78119900001911,
+          "outTok": 954,
+          "genTps": 165.1580198165458,
+          "reasoningTok": 578,
+          "seconds": 5.908012648000033,
+          "singleChunk": false,
+          "action": "write_file(app.js, 1.3 KB)"
+        },
+        {
+          "turn": 5,
+          "ctxTok": 1869,
+          "ttftMs": 153.378171999997,
+          "outTok": 168,
+          "genTps": 164.39986618363412,
+          "reasoningTok": 160,
+          "seconds": 1.1691940839999588,
+          "singleChunk": false,
+          "action": "list_files(3)"
+        },
+        {
+          "turn": 6,
+          "ctxTok": 1893,
+          "ttftMs": 81.79172699997434,
+          "outTok": 273,
+          "genTps": 164.78723353365157,
+          "reasoningTok": 163,
+          "seconds": 1.732405030999973,
+          "singleChunk": false,
+          "action": "finish"
+        }
+      ],
+      "toolCalls": 6,
+      "malformed": 0,
+      "unknown": 0,
+      "noToolTurns": 0,
+      "cappedTurns": 0,
+      "stalledTurns": 0,
+      "plan": [
+        "Create index.html with a form containing bill amount, tip percentage, number of people inputs, result display elements, and links to styles.css and app.js",
+        "Write styles.css providing clean styling for the page layout, form fields, labels, and results section",
+        "Write app.js that listens for input changes on all three fields, computes tip amount, total, and per-person share, and updates the DOM live"
+      ],
+      "summary": "Built a self-contained tip calculator web app in exactly three files: index.html (form with bill amount, tip percentage, and number of people inputs plus result display), styles.css (clean centered layout with form styling), and app.js (live calculation logic that updates tip amount, total, and per-person share on input change or Enter key press). The app is keyboard accessible, works offline without any CDN or framework, and links both style and script files directly in the HTML.",
+      "files": [
+        "index.html",
+        "styles.css",
+        "app.js"
+      ]
+    }
+  ]
+}

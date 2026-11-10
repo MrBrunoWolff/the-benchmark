@@ -1,0 +1,419 @@
+{
+  "id": "1c315f3c-121b-480c-97a2-b417fcab373e",
+  "status": "completed",
+  "createdAt": "2026-11-10T18:10:07.003Z",
+  "config": {
+    "kind": "tasks",
+    "endpoint": "http://localhost:1234",
+    "model": "lfm2.5-24b-a2b",
+    "tasks": [
+      "money-split",
+      "csv-parser",
+      "ticket-triage"
+    ],
+    "repeats": 1,
+    "maxTurns": 24,
+    "maxTokens": 8192,
+    "contextWindow": 38656,
+    "timeout": 900,
+    "reasoning": "none",
+    "temperature": 0,
+    "phases": [
+      "prefill",
+      "generation"
+    ],
+    "sizes": [
+      256,
+      2048,
+      8192
+    ],
+    "depths": [
+      0
+    ],
+    "concurrency": [
+      1,
+      2,
+      4
+    ],
+    "genTokens": 256
+  },
+  "backend": {
+    "serverVersion": null,
+    "model": {
+      "id": "lfm2.5-24b-a2b",
+      "object": "model",
+      "type": "llm",
+      "publisher": "LiquidAI",
+      "arch": "lfm2moe",
+      "compatibility_type": "gguf",
+      "quantization": "Q4_K_M",
+      "state": "loaded",
+      "max_context_length": 131072,
+      "loaded_context_length": 38656,
+      "capabilities": [
+        "tool_use"
+      ]
+    },
+    "capturedAt": "2026-11-10T18:10:07.002Z"
+  },
+  "hardware": {
+    "platform": "linux",
+    "architecture": "x64",
+    "cpu": "AMD Ryzen 7 5800X3D 8-Core Processor",
+    "cpuCount": 16,
+    "memoryBytes": 16724652032
+  },
+  "versions": {
+    "studio": "0.6.0",
+    "harbor": "0.24.0",
+    "pi": "1.0.4",
+    "agentNative": "0.201.1",
+    "adapter": "2"
+  },
+  "suite": "local-v1@1.0.0",
+  "taskHashes": {
+    "money-split": "e4083db04c6cfd5d1dc75b39f52643d87a0a461ed7df217e29c5116bd420491f",
+    "csv-parser": "20fe2cd321248ef6dc0ebaa65cd906a805628cea42c0f88bfdbfd4c808819760",
+    "ticket-triage": "4e688ae370518f8e1b8759622a981e77f058beb39879992375a81ab4b86697d2"
+  },
+  "trials": [
+    {
+      "id": "csv-parser__GutG5pv",
+      "task": "csv-parser",
+      "status": "failed",
+      "reward": 0,
+      "checks": {
+        "schemaVersion": 1,
+        "complete": true,
+        "source": "verifier",
+        "checks": [
+          {
+            "id": "csv-1",
+            "label": "Empty input",
+            "status": "failed",
+            "message": "Expected values to be strictly deep-equal:\n+ actual - expected\n\n+ [\n+   [\n+     ''\n+   ]\n+ ]\n- []\n",
+            "expected": "[]",
+            "actual": "[ [ '' ] ]"
+          },
+          {
+            "id": "csv-2",
+            "label": "Comma-separated records",
+            "status": "passed"
+          },
+          {
+            "id": "csv-3",
+            "label": "CRLF records and trailing separator",
+            "status": "failed",
+            "message": "Expected values to be strictly deep-equal:\n+ actual - expected\n\n  [\n    [\n      'a',\n+     'b\\r'\n-     'b'\n    ],\n    [\n      'c',\n+     'd\\r'\n-     'd'\n    ],\n+   [\n+     ''\n+   ]\n  ]\n",
+            "expected": "[ [ 'a', 'b' ], [ 'c', 'd' ] ]",
+            "actual": "[ [ 'a', 'b\\r' ], [ 'c', 'd\\r' ], [ '' ] ]"
+          },
+          {
+            "id": "csv-4",
+            "label": "Quoted comma",
+            "status": "failed",
+            "message": "Expected values to be strictly deep-equal:\n+ actual - expected\n\n  [\n    [\n+     '\"hello',\n+     ' world\"',\n-     'hello, world',\n      'x'\n    ]\n  ]\n",
+            "expected": "[ [ 'hello, world', 'x' ] ]",
+            "actual": "[ [ '\"hello', ' world\"', 'x' ] ]"
+          },
+          {
+            "id": "csv-5",
+            "label": "Escaped double quotes",
+            "status": "failed",
+            "message": "Expected values to be strictly deep-equal:\n+ actual - expected\n\n  [\n    [\n+     '\"say \"\"hi\"\"\"',\n-     'say \"hi\"',\n      'y'\n    ]\n  ]\n",
+            "expected": "[ [ 'say \"hi\"', 'y' ] ]",
+            "actual": "[ [ '\"say \"\"hi\"\"\"', 'y' ] ]"
+          },
+          {
+            "id": "csv-6",
+            "label": "Quoted LF newline",
+            "status": "failed",
+            "message": "Expected values to be strictly deep-equal:\n+ actual - expected\n\n  [\n    [\n+     '\"line1'\n+   ],\n+   [\n+     'line2\"',\n-     'line1\\nline2',\n      'z'\n    ]\n  ]\n",
+            "expected": "[ [ 'line1\\nline2', 'z' ] ]",
+            "actual": "[ [ '\"line1' ], [ 'line2\"', 'z' ] ]"
+          },
+          {
+            "id": "csv-7",
+            "label": "Trailing empty fields",
+            "status": "passed"
+          },
+          {
+            "id": "csv-8",
+            "label": "No extra row after trailing newline",
+            "status": "failed",
+            "message": "Expected values to be strictly deep-equal:\n+ actual - expected\n\n  [\n    [\n      'a',\n      'b'\n    ],\n+   [\n+     ''\n+   ]\n  ]\n",
+            "expected": "[ [ 'a', 'b' ] ]",
+            "actual": "[ [ 'a', 'b' ], [ '' ] ]"
+          },
+          {
+            "id": "csv-9",
+            "label": "Spaces and empty quoted fields",
+            "status": "failed",
+            "message": "Expected values to be strictly deep-equal:\n+ actual - expected\n\n  [\n    [\n      ' ',\n+     '\"\"',\n-     '',\n      'x'\n    ]\n  ]\n",
+            "expected": "[ [ ' ', '', 'x' ] ]",
+            "actual": "[ [ ' ', '\"\"', 'x' ] ]"
+          },
+          {
+            "id": "csv-10",
+            "label": "Quoted CRLF newline",
+            "status": "failed",
+            "message": "Expected values to be strictly deep-equal:\n+ actual - expected\n\n  [\n    [\n+     '\"a\\r'\n+   ],\n+   [\n+     'b\"',\n-     'a\\r\\nb',\n      'c'\n    ]\n  ]\n",
+            "expected": "[ [ 'a\\r\\nb', 'c' ] ]",
+            "actual": "[ [ '\"a\\r' ], [ 'b\"', 'c' ] ]"
+          },
+          {
+            "id": "csv-11",
+            "label": "Single empty quoted field",
+            "status": "failed",
+            "message": "Expected values to be strictly deep-equal:\n+ actual - expected\n\n  [\n    [\n+     '\"\"'\n-     ''\n    ]\n  ]\n",
+            "expected": "[ [ '' ] ]",
+            "actual": "[ [ '\"\"' ] ]"
+          },
+          {
+            "id": "csv-12",
+            "label": "Single empty record",
+            "status": "failed",
+            "message": "Expected values to be strictly deep-equal:\n+ actual - expected\n\n  [\n    [\n      ''\n    ],\n+   [\n+     ''\n+   ]\n  ]\n",
+            "expected": "[ [ '' ] ]",
+            "actual": "[ [ '' ], [ '' ] ]"
+          },
+          {
+            "id": "unclosed-quote",
+            "label": "Reject unclosed quoted field",
+            "status": "failed",
+            "message": "Missing expected exception (SyntaxError).",
+            "expected": "[Function: SyntaxError]",
+            "actual": "undefined"
+          }
+        ],
+        "evaluatedAt": "2026-11-10T18:12:30.167Z",
+        "verifierHash": "ee57085a94d0499764337ea70f91dcda1febd2cef40317d8698264fd7ff1449f"
+      },
+      "seconds": 73.947,
+      "setupSeconds": 5.933,
+      "inputTokens": 5081,
+      "outputTokens": 8405,
+      "budgetExhausted": false,
+      "outputBudgetExhausted": true,
+      "lastStopReason": "length",
+      "thinkingObserved": true,
+      "requestReasoningEffort": "none",
+      "toolErrors": [],
+      "error": null,
+      "checksum": "5fbb2bd00849190c0cfa28eefa196dba6fe14fe9fdbc500eca2a6a89c1941c35",
+      "agentVersion": "1.0.4",
+      "resultFile": "job/csv-parser__GutG5pv/result.json"
+    },
+    {
+      "id": "money-split__sZULbVo",
+      "task": "money-split",
+      "status": "passed",
+      "reward": 1,
+      "checks": {
+        "schemaVersion": 1,
+        "complete": true,
+        "source": "verifier",
+        "checks": [
+          {
+            "id": "valid-1",
+            "label": "Split 100 cents among 3 people",
+            "status": "passed"
+          },
+          {
+            "id": "valid-2",
+            "label": "Split 1 cents among 4 people",
+            "status": "passed"
+          },
+          {
+            "id": "valid-3",
+            "label": "Split 0 cents among 2 people",
+            "status": "passed"
+          },
+          {
+            "id": "valid-4",
+            "label": "Split 101 cents among 1 people",
+            "status": "passed"
+          },
+          {
+            "id": "valid-5",
+            "label": "Split 99999 cents among 11 people",
+            "status": "passed"
+          },
+          {
+            "id": "valid-6",
+            "label": "Split 9007199254740991 cents among 7 people",
+            "status": "passed"
+          },
+          {
+            "id": "valid-7",
+            "label": "Split 42 cents among 10000 people",
+            "status": "passed"
+          },
+          {
+            "id": "invalid-1",
+            "label": "Reject total=-1, people=2",
+            "status": "passed"
+          },
+          {
+            "id": "invalid-2",
+            "label": "Reject total=1.1, people=2",
+            "status": "passed"
+          },
+          {
+            "id": "invalid-3",
+            "label": "Reject total=100, people=0",
+            "status": "passed"
+          },
+          {
+            "id": "invalid-4",
+            "label": "Reject total=100, people=-1",
+            "status": "passed"
+          },
+          {
+            "id": "invalid-5",
+            "label": "Reject total=100, people=1.5",
+            "status": "passed"
+          },
+          {
+            "id": "invalid-6",
+            "label": "Reject total=100, people=10001",
+            "status": "passed"
+          },
+          {
+            "id": "invalid-7",
+            "label": "Reject total=Infinity, people=2",
+            "status": "passed"
+          },
+          {
+            "id": "invalid-8",
+            "label": "Reject total=\"100\", people=2",
+            "status": "passed"
+          },
+          {
+            "id": "invalid-9",
+            "label": "Reject total=100, people=\"2\"",
+            "status": "passed"
+          },
+          {
+            "id": "invalid-10",
+            "label": "Reject total=9007199254740992, people=2",
+            "status": "passed"
+          }
+        ],
+        "evaluatedAt": "2026-11-10T18:10:53.920Z",
+        "verifierHash": "6febd086e54f18309b89ecbe02b9687b49640d37368d6720ed26d0a0a756d742"
+      },
+      "seconds": 25.983,
+      "setupSeconds": 6.43,
+      "inputTokens": 23374,
+      "outputTokens": 2916,
+      "budgetExhausted": false,
+      "outputBudgetExhausted": false,
+      "lastStopReason": "stop",
+      "thinkingObserved": true,
+      "requestReasoningEffort": "none",
+      "toolErrors": [],
+      "error": null,
+      "checksum": "b54d3c203016d8463e35d261f5e04971802bed5a94a215c589747465c0a64541",
+      "agentVersion": "1.0.4",
+      "resultFile": "job/money-split__sZULbVo/result.json"
+    },
+    {
+      "id": "ticket-triage__2x2rRJb",
+      "task": "ticket-triage",
+      "status": "failed",
+      "reward": 0,
+      "checks": {
+        "schemaVersion": 1,
+        "complete": true,
+        "source": "verifier",
+        "checks": [
+          {
+            "id": "json",
+            "label": "Artifact is valid JSON",
+            "status": "passed"
+          },
+          {
+            "id": "structure",
+            "label": "Exactly six tickets in an array",
+            "status": "passed"
+          },
+          {
+            "id": "t1",
+            "label": "Ticket t1: department, priority, refund and input order",
+            "status": "passed"
+          },
+          {
+            "id": "t2",
+            "label": "Ticket t2: department, priority, refund and input order",
+            "status": "passed"
+          },
+          {
+            "id": "t3",
+            "label": "Ticket t3: department, priority, refund and input order",
+            "status": "passed"
+          },
+          {
+            "id": "t4",
+            "label": "Ticket t4: department, priority, refund and input order",
+            "status": "passed"
+          },
+          {
+            "id": "t5",
+            "label": "Ticket t5: department, priority, refund and input order",
+            "status": "failed",
+            "message": "Expected values to be strictly deep-equal:\n+ actual - expected\n\n  {\n+   department: 'other',\n-   department: 'billing',\n    id: 't5',\n    priority: 'low',\n    refund_requested: false\n  }\n",
+            "expected": "{\n  id: 't5',\n  department: 'billing',\n  priority: 'low',\n  refund_requested: false\n}",
+            "actual": "{\n  id: 't5',\n  department: 'other',\n  priority: 'low',\n  refund_requested: false\n}"
+          },
+          {
+            "id": "t6",
+            "label": "Ticket t6: department, priority, refund and input order",
+            "status": "passed"
+          }
+        ],
+        "evaluatedAt": "2026-11-10T18:13:08.436Z",
+        "verifierHash": "ac889c4709af76d059276c39c3f405d1f4a3d2e49b0b80ae9492364c0558c56d"
+      },
+      "seconds": 17.112,
+      "setupSeconds": 5.239,
+      "inputTokens": 6708,
+      "outputTokens": 1819,
+      "budgetExhausted": false,
+      "outputBudgetExhausted": false,
+      "lastStopReason": "stop",
+      "thinkingObserved": true,
+      "requestReasoningEffort": "none",
+      "toolErrors": [],
+      "error": null,
+      "checksum": "53b7675408cfd2435172785d67b95680326a1327896e40ac5f6986da8394466a",
+      "agentVersion": "1.0.4",
+      "resultFile": "job/ticket-triage__2x2rRJb/result.json"
+    }
+  ],
+  "summary": {
+    "expected": 3,
+    "completed": 3,
+    "passed": 1,
+    "failed": 2,
+    "setupErrors": 0,
+    "errors": 0,
+    "successRate": 0.3333333333333333,
+    "checks": {
+      "passed": 26,
+      "failed": 12,
+      "total": 38,
+      "rate": 0.6842105263157895,
+      "reportedAttempts": 3,
+      "expectedAttempts": 3,
+      "replayedAttempts": 0
+    },
+    "medianSeconds": 25.983,
+    "inputTokens": 35163,
+    "outputTokens": 13140
+  },
+  "startedAt": "2026-11-10T18:10:07.020Z",
+  "exitCode": 0,
+  "finishedAt": "2026-11-10T18:13:12.607Z",
+  "seconds": 185.587
+}
